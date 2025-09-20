@@ -29,7 +29,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y rsync
 
       - name: Build local image (nocodb-local)
-        run: bash ./nocodb/build-local-docker-image.sh
+        working-directory: ./nocodb
+        run: bash ./build-local-docker-image.sh
 
       - name: Docker login
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
