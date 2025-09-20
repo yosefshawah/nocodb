@@ -1,0 +1,41 @@
+name: Build local script & Push
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag (e.g. v1.0.0 or pr-123)"
+        required: true
+
+jobs:
+  build-push:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      # Optional: ensure rsync is available for the script
+      - run: sudo apt-get update && sudo apt-get install -y rsync
+
+      # Build using your repo’s script (rebundles UI + backend, builds Docker image 'nocodb-local')
+      - name: Build local image
+        run: bash ./nocodb/build-local-docker-image.sh
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tag & push
+        run: |
+          docker tag nocodb-local ${{ secrets.DOCKERHUB_USERNAME }}/nocodb-custom:${{ inputs.tag }}
+          docker tag nocodb-local ${{ secrets.DOCKERHUB_USERNAME }}/nocodb-custom:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/nocodb-custom:${{ inputs.tag }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/nocodb-custom:latest
