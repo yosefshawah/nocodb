@@ -5,10 +5,13 @@ on:
     branches: [develop]
     types: [opened, synchronize, reopened]
 
+permissions:
+  contents: write # needed for gh-pages
+
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
-# This workflow builds the local image and pushes it to Docker Hub
+
 jobs:
   build-push:
     runs-on: ubuntu-22.04
@@ -27,6 +30,14 @@ jobs:
 
       - name: Install rsync (script uses it)
         run: sudo apt-get update && sudo apt-get install -y rsync
+
+      - name: Set IMAGE_TAG (global)
+        id: vars
+        run: |
+          SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
+          echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_ENV
+          echo "IMAGE_TAG=pr-${{ github.event.pull_request.number }}-$SHORT_SHA" >> $GITHUB_ENV
+          echo "IMAGE_TAG=pr-${{ github.event.pull_request.number }}-$SHORT_SHA" >> $GITHUB_OUTPUT
 
       - name: Build local image (nocodb-local)
         run: |
@@ -47,9 +58,30 @@ jobs:
       - name: Tag & push
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
-          PR=${{ github.event.pull_request.number }}
-          SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          docker tag nocodb-local $IMAGE:pr-$PR
-          docker tag nocodb-local $IMAGE:pr-$PR-$SHORT_SHA
-          docker push $IMAGE:pr-$PR
-          docker push $IMAGE:pr-$PR-$SHORT_SHA
+          docker tag nocodb-local "$IMAGE:$IMAGE_TAG"
+          docker tag nocodb-local "$IMAGE:pr-${{ github.event.pull_request.number }}"
+          docker push "$IMAGE:$IMAGE_TAG"
+          docker push "$IMAGE:pr-${{ github.event.pull_request.number }}"
+
+      - name: Install Allure CLI
+        run: npm i -g allure-commandline@2.29.0 --no-audit --no-fund
+
+      - name: Generate Allure report (with image tag)
+        run: |
+          mkdir -p ./allure-results
+          echo "imageTag=$IMAGE_TAG" >> ./allure-results/environment.properties
+          # If your tests generate allure-results, remove the placeholder below
+          if [ ! -d ./allure-results || -z "$(ls -A ./allure-results)" ]; then
+            mkdir -p ./allure-results && echo "No results yet" > ./allure-results/README.txt
+          fi
+          allure generate ./allure-results --clean -o ./allure-report
+
+      - name: Publish Allure report to GitHub Pages
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./allure-report
+          destination_dir: pr-${{ github.event.pull_request.number }}
+          keep_files: true
