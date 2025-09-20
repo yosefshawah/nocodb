@@ -8,7 +8,7 @@ on:
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
-
+# This workflow builds the local image and pushes it to Docker Hub
 jobs:
   build-push:
     runs-on: ubuntu-22.04
