@@ -5,13 +5,20 @@ on:
     branches: [develop]
     types: [opened, synchronize, reopened]
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  build-push:
+  build-and-push:
     runs-on: ubuntu-22.04
+    outputs:
+      image_tag: ${{ steps.tag.outputs.image_tag }}
     env:
       IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/nocodb-custom
     steps:
@@ -45,17 +52,20 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Tag, push and set IMAGE_TAG (timestamp)
+        id: tag
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
           TS=$(date -u +%Y%m%d%H%M%S)
           PR=${{ github.event.pull_request.number }}
           TAG="pr-$PR-$TS"
-
           docker tag nocodb-local $IMAGE:$TAG
           docker push $IMAGE:$TAG
+          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
 
-          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
-
+  deploy-to-ec2:
+    runs-on: ubuntu-22.04
+    needs: build-and-push
+    steps:
       - name: Prepare remote directory
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         uses: appleboy/ssh-action@v1.0.3
@@ -99,8 +109,6 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/app
-
-            # Determine docker compose command (v2 plugin or legacy)
             if docker compose version >/dev/null 2>&1; then
               DCMD="docker compose"
             elif command -v docker-compose >/dev/null 2>&1; then
@@ -109,21 +117,13 @@ jobs:
               echo "Docker Compose not found. Please install docker compose v2 or docker-compose." >&2
               exit 1
             fi
-
-            # Best-effort compose down (workspace already cleaned and Docker pruned)
             $DCMD down || true
-
-            # Create .env for compose
             cat > .env << EOF
-            IMAGE_TAG=${{ env.IMAGE_TAG }}
+            IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
             DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
             EOF
-
-            # Pull and start
             $DCMD pull
             $DCMD up -d
-
-            # Wait for service to be reachable (max ~60s)
             for i in $(seq 1 30); do
               if curl -sSf -o /dev/null http://localhost:8080/; then
                 echo "Service is up"
@@ -132,7 +132,6 @@ jobs:
               echo "Waiting for service... ($i)"
               sleep 2
             done
-            # Final check
             curl -sSf http://localhost:8080/ >/dev/null
 
       - name: Wait for service from GitHub runner
@@ -149,45 +148,80 @@ jobs:
           echo "Service did not become ready in time" >&2
           exit 1
 
+  api-tests:
+    runs-on: ubuntu-22.04
+    needs: deploy-to-ec2
+    steps:
       - name: Set up Python
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install test dependencies
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
           pip install -r yosef-code/requirements.txt
           pip install allure-pytest
 
+      - name: Export API_TOKEN from secret (optional)
+        env:
+          SECRET_API_TOKEN: ${{ secrets.NOCODB_API_TOKEN }}
+        run: |
+          if [ -n "$SECRET_API_TOKEN" ]; then
+            echo "API_TOKEN=$SECRET_API_TOKEN" >> $GITHUB_ENV
+          fi
+
       - name: Run API tests (pytest) with Allure
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         env:
           NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
         run: pytest -q yosef-code/tests --alluredir=allure-results
 
-      - name: Add Allure environment.properties
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+      - name: Upload raw Allure results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-raw
+          path: allure-results/**
+
+  allure-report:
+    runs-on: ubuntu-22.04
+    needs: api-tests
+    if: always()
+    steps:
+      - name: Create Allure environment.properties
         run: |
           mkdir -p allure-results
           cat > allure-results/environment.properties <<EOF
           ENVIRONMENT=PR-${{ github.event.pull_request.number }}
-          IMAGE_TAG=${{ env.IMAGE_TAG }}
+          IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
           NOCODB_URL=http://${{ secrets.EC2_HOST }}:8080/
           EOF
 
       - name: Generate Allure report
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
           npm install -g allure-commandline
-          allure generate allure-results --clean -o allure-report
+          allure generate allure-results --clean -o allure-report || echo "No results to generate"
 
       - name: Upload Allure artifacts
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         uses: actions/upload-artifact@v4
         with:
-          name: allure-results
+          name: allure-report
           path: |
             allure-results/**
             allure-report/**
+
+      - name: Upload Allure report to Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: allure-report
+
+  deploy-allure-pages:
+    runs-on: ubuntu-22.04
+    needs: allure-report
+    if: always()
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
