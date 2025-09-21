@@ -28,8 +28,15 @@ jobs:
       - name: Install rsync (script uses it)
         run: sudo apt-get update && sudo apt-get install -y rsync
 
+      - name: Debug workspace
+        run: |
+          pwd
+          ls -la
+          ls -la nocodb || true
+
       - name: Build local image (nocodb-local)
-        run: bash ./nocodb/build-local-docker-image.sh
+        working-directory: nocodb
+        run: bash ./build-local-docker-image.sh
 
       - name: Docker login
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
@@ -47,3 +54,121 @@ jobs:
           docker tag nocodb-local $IMAGE:pr-$PR-$SHORT_SHA
           docker push $IMAGE:pr-$PR
           docker push $IMAGE:pr-$PR-$SHORT_SHA
+
+      - name: Set IMAGE_TAG for deploy
+        run: |
+          PR=${{ github.event.pull_request.number }}
+          SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
+          echo "IMAGE_TAG=pr-$PR-$SHORT_SHA" >> $GITHUB_ENV
+
+      - name: Prepare remote directory
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            mkdir -p ~/app
+
+      - name: Sync deploy folder to EC2
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "nocodb/deploy/**"
+          target: "~/app"
+          overwrite: true
+          strip_components: 1
+
+      - name: Deploy to EC2
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/app
+
+            # Determine docker compose command (v2 plugin or legacy)
+            if docker compose version >/dev/null 2>&1; then
+              DCMD="docker compose"
+            elif command -v docker-compose >/dev/null 2>&1; then
+              DCMD="docker-compose"
+            else
+              echo "Docker Compose not found. Please install docker compose v2 or docker-compose." >&2
+              exit 1
+            fi
+
+            # Clean up any old state (best-effort)
+            $DCMD down || true
+            docker stop $(docker ps -aq) 2>/dev/null || true
+            docker rm $(docker ps -aq) 2>/dev/null || true
+            docker volume prune -f || true
+            docker network prune -f || true
+            docker system prune -f || true
+
+            # Create .env for compose
+            cat > .env << EOF
+            IMAGE_TAG=${{ env.IMAGE_TAG }}
+            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+            EOF
+
+            # Pull and start
+            $DCMD pull
+            $DCMD up -d
+
+            # Wait for service to be reachable (max ~60s)
+            for i in $(seq 1 30); do
+              if curl -sSf -o /dev/null http://localhost:8080/; then
+                echo "Service is up"
+                break
+              fi
+              echo "Waiting for service... ($i)"
+              sleep 2
+            done
+            # Final check
+            curl -sSf http://localhost:8080/ >/dev/null
+
+      - name: Wait for service from GitHub runner
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sSf -o /dev/null http://${{ secrets.EC2_HOST }}:8080/; then
+              echo "Remote service is up"
+              exit 0
+            fi
+            echo "Waiting for remote service... ($i)"
+            sleep 2
+          done
+          echo "Service did not become ready in time" >&2
+          exit 1
+
+      - name: Set up Python
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        run: pip install -r nocodb/yosef-code/requirements.txt
+
+      - name: Export API_TOKEN from secret (optional)
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        env:
+          SECRET_API_TOKEN: ${{ secrets.NOCODB_API_TOKEN }}
+        run: |
+          if [ -n "$SECRET_API_TOKEN" ]; then
+            echo "API_TOKEN=$SECRET_API_TOKEN" >> $GITHUB_ENV
+          fi
+
+      - name: Run API tests (pytest)
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        env:
+          NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
+        run: pytest -q
+        working-directory: nocodb/yosef-code/tests
