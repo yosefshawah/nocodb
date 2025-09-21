@@ -44,21 +44,17 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Tag & push
+      - name: Tag, push and set IMAGE_TAG (timestamp)
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
+          TS=$(date -u +%Y%m%d%H%M%S)
           PR=${{ github.event.pull_request.number }}
-          SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          docker tag nocodb-local $IMAGE:pr-$PR
-          docker tag nocodb-local $IMAGE:pr-$PR-$SHORT_SHA
-          docker push $IMAGE:pr-$PR
-          docker push $IMAGE:pr-$PR-$SHORT_SHA
+          TAG="pr-$PR-$TS"
 
-      - name: Set IMAGE_TAG for deploy
-        run: |
-          PR=${{ github.event.pull_request.number }}
-          SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          echo "IMAGE_TAG=pr-$PR-$SHORT_SHA" >> $GITHUB_ENV
+          docker tag nocodb-local $IMAGE:$TAG
+          docker push $IMAGE:$TAG
+
+          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
 
       - name: Prepare remote directory
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
@@ -69,6 +65,18 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             mkdir -p ~/app
+
+      - name: Reset EC2 workspace and prune Docker
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            sudo rm -rf ~/app || true
+            mkdir -p ~/app
+            docker system prune -af --volumes || true
 
       - name: Sync deploy folder to EC2
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
@@ -102,13 +110,8 @@ jobs:
               exit 1
             fi
 
-            # Clean up any old state (best-effort)
+            # Best-effort compose down (workspace already cleaned and Docker pruned)
             $DCMD down || true
-            docker stop $(docker ps -aq) 2>/dev/null || true
-            docker rm $(docker ps -aq) 2>/dev/null || true
-            docker volume prune -f || true
-            docker network prune -f || true
-            docker system prune -f || true
 
             # Create .env for compose
             cat > .env << EOF
@@ -162,7 +165,7 @@ jobs:
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         env:
           NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
-        run: pytest -q nocodb/yosef-code/tests --alluredir=allure-results
+        run: pytest -q yosef-code/tests --alluredir=allure-results
 
       - name: Add Allure environment.properties
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
