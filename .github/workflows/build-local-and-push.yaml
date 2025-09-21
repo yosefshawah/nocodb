@@ -154,20 +154,37 @@ jobs:
 
       - name: Install test dependencies
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
-        run: pip install -r yosef-code/requirements.txt
-
-      - name: Export API_TOKEN from secret (optional)
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
-        env:
-          SECRET_API_TOKEN: ${{ secrets.NOCODB_API_TOKEN }}
         run: |
-          if [ -n "$SECRET_API_TOKEN" ]; then
-            echo "API_TOKEN=$SECRET_API_TOKEN" >> $GITHUB_ENV
-          fi
+          pip install -r yosef-code/requirements.txt
+          pip install allure-pytest
 
-      - name: Run API tests (pytest)
+      - name: Run API tests (pytest) with Allure
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         env:
           NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
-        run: pytest -q
-        working-directory: yosef-code/tests
+        run: pytest -q nocodb/yosef-code/tests --alluredir=allure-results
+
+      - name: Add Allure environment.properties
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          mkdir -p allure-results
+          cat > allure-results/environment.properties <<EOF
+          ENVIRONMENT=PR-${{ github.event.pull_request.number }}
+          IMAGE_TAG=${{ env.IMAGE_TAG }}
+          NOCODB_URL=http://${{ secrets.EC2_HOST }}:8080/
+          EOF
+
+      - name: Generate Allure report
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          npm install -g allure-commandline
+          allure generate allure-results --clean -o allure-report
+
+      - name: Upload Allure artifacts
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: |
+            allure-results/**
+            allure-report/**
