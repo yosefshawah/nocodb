@@ -35,7 +35,6 @@ jobs:
           ls -la nocodb || true
 
       - name: Build local image (nocodb-local)
-        working-directory: nocodb
         run: bash ./build-local-docker-image.sh
 
       - name: Docker login
@@ -78,7 +77,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "nocodb/deploy/**"
+          source: "deploy/**"
           target: "~/app"
           overwrite: true
           strip_components: 1
@@ -155,7 +154,7 @@ jobs:
 
       - name: Install test dependencies
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
-        run: pip install -r nocodb/yosef-code/requirements.txt
+        run: pip install -r yosef-code/requirements.txt
 
       - name: Export API_TOKEN from secret (optional)
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
@@ -171,4 +170,4 @@ jobs:
         env:
           NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
         run: pytest -q
-        working-directory: nocodb/yosef-code/tests
+        working-directory: yosef-code/tests
