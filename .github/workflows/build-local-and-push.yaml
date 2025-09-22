@@ -67,6 +67,8 @@ jobs:
     needs: build-and-push
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Prepare remote directory
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
@@ -124,6 +126,14 @@ jobs:
             IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
             DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
             EOF
+
+            # Ensure snapshot exists on EC2
+            mkdir -p nocodb
+            if [ ! -f nocodb/noco.db.bak ] && [ -f nocodb/noco.db ]; then
+              cp -f nocodb/noco.db nocodb/noco.db.bak
+              echo "Created snapshot from current DB."
+            fi
+
             $DCMD pull
             $DCMD up -d
             for i in $(seq 1 30); do
@@ -174,10 +184,20 @@ jobs:
             echo "API_TOKEN=$SECRET_API_TOKEN" >> $GITHUB_ENV
           fi
 
+      - name: List tests to be run (names only)
+        env:
+          NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
+        run: |
+          echo "Test cases that will run:"
+          pytest yosef-code/tests --collect-only -q \
+            | sed -E 's/.*:://' \
+            | sed '/^$/d' \
+            | tee tests_collected.txt
+
       - name: Run API tests (pytest) with Allure
         env:
           NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
-        run: pytest -q yosef-code/tests --alluredir=allure-results
+        run: pytest -vv yosef-code/tests --alluredir=allure-results
 
       - name: Upload raw Allure results
         if: ${{ always() }}
