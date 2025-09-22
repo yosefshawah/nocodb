@@ -1,12 +1,13 @@
 import subprocess
 import time
+import os
 import requests  # pyright: ignore[reportMissingModuleSource]
 import pytest  # pyright: ignore[reportMissingImports]
 from config import BASE_URL
 
-HOST = "ec2-52-18-93-49.eu-west-1.compute.amazonaws.com"
+HOST = os.environ.get("HOST", "ec2-52-18-93-49.eu-west-1.compute.amazonaws.com")
 USER = "ubuntu"
-KEY_FILE = "/Users/shawahyosef/Desktop/nocodb-final-project/nocodb-final-yosef.pem"
+KEY_FILE = os.environ.get("KEY_FILE", "/Users/shawahyosef/Desktop/nocodb-final-project/nocodb-final-yosef.pem")
 RESET_SCRIPT = "/home/ubuntu/app/scripts/reset_db.sh"
 
 def _wait_healthy(url: str, timeout: int = 40):

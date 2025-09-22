@@ -70,40 +70,6 @@ jobs:
         with:
           lfs: true
 
-      - name: Prepare remote directory
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            mkdir -p ~/app
-
-      - name: Reset EC2 workspace and prune Docker
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            sudo rm -rf ~/app || true
-            mkdir -p ~/app
-            docker system prune -af --volumes || true
-
-      - name: Sync deploy folder to EC2
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: "deploy/**"
-          target: "~/app"
-          overwrite: true
-          strip_components: 1
-
       - name: Deploy to EC2
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         uses: appleboy/ssh-action@v1.0.3
@@ -161,7 +127,7 @@ jobs:
           exit 1
 
   api-tests:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs: deploy-to-ec2
     steps:
       - uses: actions/checkout@v4
@@ -176,28 +142,20 @@ jobs:
           pip install -r yosef-code/requirements.txt
           pip install allure-pytest
 
-      - name: Export API_TOKEN from secret (optional)
-        env:
-          SECRET_API_TOKEN: ${{ secrets.NOCODB_API_TOKEN }}
+      - name: Set up SSH key
         run: |
-          if [ -n "$SECRET_API_TOKEN" ]; then
-            echo "API_TOKEN=$SECRET_API_TOKEN" >> $GITHUB_ENV
-          fi
+          echo "${{ secrets.EC2_SSH_KEY }}" > ec2_key.pem
+          chmod 600 ec2_key.pem
+          mkdir -p ~/.ssh
+          ssh-keyscan ec2-52-18-93-49.eu-west-1.compute.amazonaws.com >> ~/.ssh/known_hosts
 
-      - name: List tests to be run (names only)
+      - name: Run tests (pytest with Allure)
         env:
+          HOST: ec2-52-18-93-49.eu-west-1.compute.amazonaws.com
+          KEY_FILE: ${{ github.workspace }}/ec2_key.pem
           NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
         run: |
-          echo "Test cases that will run:"
-          pytest yosef-code/tests --collect-only -q \
-            | sed -E 's/.*:://' \
-            | sed '/^$/d' \
-            | tee tests_collected.txt
-
-      - name: Run API tests (pytest) with Allure
-        env:
-          NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
-        run: pytest -vv yosef-code/tests --alluredir=allure-results
+          pytest -vv -s yosef-code/tests --alluredir=allure-results
 
       - name: Upload raw Allure results
         if: ${{ always() }}
