@@ -7,8 +7,7 @@ import os
 import requests
 
 # Base configuration - use environment variables with fallbacks
-BASE_URL = os.getenv('NOCODB_URL', 'http://localhost:8080/')
-# BASE_URL = "http://localhost:8080/"
+BASE_URL = os.getenv('NOCODB_URL', 'http://52.18.93.49:8080/')
 API_TOKEN = os.getenv('API_TOKEN', 'xpkrixNKoiHqfwzsIDoNh7MLRjP4FLR48gV3QFgQ')  # no fallback; token varies per instance
 NC_ADMIN_EMAIL = os.getenv('NC_ADMIN_EMAIL', 'admin@example.com')
 NC_ADMIN_PASSWORD = os.getenv('NC_ADMIN_PASSWORD', '12341234')
