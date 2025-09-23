@@ -1,0 +1,12 @@
+[debug] BASE_URL from config: http://52.18.93.49:8080/
+[debug] Environment BASE_URL: None
+[debug] Environment NOCODB_URL: http://52.18.93.49:8080/
+[debug] Environment EC2_HOST: None
+[debug] Environment KEY_FILE: None
+[debug] Environment SSH_KEY_FILE: None
+[debug] Final SSH_KEY_FILE: /Users/shawahyosef/Desktop/nocodb-final-project/nocodb-final-yosef.pem
+[timing] Service health check: 0.38s
+[debug] SSH_HOST: ec2-52-18-93-49.eu-west-1.compute.amazonaws.com
+[debug] SSH_USER: ubuntu
+[debug] SSH_KEY_FILE: /Users/shawahyosef/Desktop/nocodb-final-project/nocodb-final-yosef.pem
+[debug] RESET_SCRIPT: /home/ubuntu/app/scripts/reset_db.sh
