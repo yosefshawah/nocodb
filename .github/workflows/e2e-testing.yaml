@@ -220,6 +220,13 @@ jobs:
           pip install -r requirements.txt
           pip install allure-pytest
 
+      - name: Set up SSH key
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" > ec2_key.pem
+          chmod 600 ec2_key.pem
+          mkdir -p ~/.ssh
+          ssh-keyscan ec2-52-18-93-49.eu-west-1.compute.amazonaws.com >> ~/.ssh/known_hosts
+
       - name: Install Chrome & ChromeDriver
         run: |
           sudo apt update
@@ -258,6 +265,8 @@ jobs:
       - name: Run Selenium tests
         env:
           HEADLESS: true
+          HOST: ec2-52-18-93-49.eu-west-1.compute.amazonaws.com
+          KEY_FILE: ${{ github.workspace }}/ec2_key.pem
           NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
           DISPLAY: :99
         run: |
