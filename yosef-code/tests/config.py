@@ -3,13 +3,14 @@ Configuration file for NocoDB API tests
 Contains common settings, API tokens, table IDs, and helper functions
 """
 
-import requests
 import os
+import requests
 
 # Base configuration - use environment variables with fallbacks
 BASE_URL = os.getenv('NOCODB_URL', 'http://52.18.93.49:8080/')
-# BASE_URL = "http://localhost:8080/"
-API_TOKEN = os.getenv('API_TOKEN', 'xpkrixNKoiHqfwzsIDoNh7MLRjP4FLR48gV3QFgQ')
+API_TOKEN = os.getenv('API_TOKEN', 'xpkrixNKoiHqfwzsIDoNh7MLRjP4FLR48gV3QFgQ')  # no fallback; token varies per instance
+NC_ADMIN_EMAIL = os.getenv('NC_ADMIN_EMAIL', 'admin@example.com')
+NC_ADMIN_PASSWORD = os.getenv('NC_ADMIN_PASSWORD', '12341234')
 # Environment detection
 ENVIRONMENT = os.getenv('ENVIRONMENT', 'production')
 
@@ -38,11 +39,24 @@ def get_role_id_by_name(name: str) -> int:
 
 # Common headers for API requests
 def get_auth_headers():
-    """Get authentication headers for API requests"""
+    if API_TOKEN:
+        return {
+            'accept': 'application/json',
+            'Content-Type': 'application/json',
+            'xc-token': API_TOKEN,
+        }
+    # Fallback: login to get session token
+    r = requests.post(
+        f"{BASE_URL}api/v1/auth/user/signin",
+        json={'email': NC_ADMIN_EMAIL, 'password': NC_ADMIN_PASSWORD},
+        timeout=10,
+    )
+    r.raise_for_status()
+    token = r.json()['token']
     return {
         'accept': 'application/json',
         'Content-Type': 'application/json',
-        'xc-token': API_TOKEN
+        'xc-auth': token,
     }
 
 # Sample request bodies for different test scenarios
