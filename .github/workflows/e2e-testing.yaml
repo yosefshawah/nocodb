@@ -5,6 +5,35 @@ on:
     branches: [develop]
     types: [opened, synchronize, reopened]
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to test against"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - development
+          - production
+      test_suite:
+        description: "Which tests to run"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - both
+          - api-only
+          - ui-only
+      skip_deployment:
+        description: "Skip deployment and use existing instance"
+        required: false
+        default: false
+        type: boolean
+      debug_mode:
+        description: "Enable debug mode for tests"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -12,7 +41,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pr-${{ github.event.pull_request.number }}
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('manual-{0}-{1}', github.ref_name, github.run_id) }}
   cancel-in-progress: true
 
 jobs:
@@ -66,6 +95,7 @@ jobs:
   deploy-to-ec2:
     runs-on: ubuntu-22.04
     needs: build-and-push
+    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && !github.event.inputs.skip_deployment) }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -130,6 +160,7 @@ jobs:
   api-tests:
     runs-on: ubuntu-latest
     needs: [deploy-to-ec2, build-and-push]
+    if: ${{ always() && !cancelled() && (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.test_suite == 'both' || github.event.inputs.test_suite == 'api-only'))) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -169,6 +200,7 @@ jobs:
   ui-tests:
     runs-on: ubuntu-latest
     needs: [api-tests, deploy-to-ec2, build-and-push]
+    if: ${{ always() && !cancelled() && (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.test_suite == 'both' || github.event.inputs.test_suite == 'ui-only'))) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -283,9 +315,11 @@ jobs:
         run: |
           mkdir -p allure-results
           cat > allure-results/environment.properties <<EOF
-          ENVIRONMENT=PR-${{ github.event.pull_request.number }}
+          ENVIRONMENT=${{ github.event_name == 'pull_request' && format('PR-{0}', github.event.pull_request.number) || format('{0}', github.event.inputs.environment || 'Manual') }}
+          TEST_SUITE=${{ github.event.inputs.test_suite || 'both' }}
           IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
           NOCODB_URL=http://${{ secrets.EC2_HOST }}:8080/
+          DEBUG_MODE=${{ github.event.inputs.debug_mode || 'false' }}
           EOF
 
       - name: Generate Allure report
