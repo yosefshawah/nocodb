@@ -1,1 +1,1 @@
-[{"values":["PR-6"],"name":"ENVIRONMENT"},{"values":["both"],"name":"TEST_SUITE"},{"values":["pr-6-20250923161122"],"name":"IMAGE_TAG"},{"values":["http://52.18.93.49:8080/"],"name":"NOCODB_URL"},{"values":["false"],"name":"DEBUG_MODE"}]
+[{"values":["PR-6"],"name":"ENVIRONMENT"},{"values":["both"],"name":"TEST_SUITE"},{"values":["pr-6-20250923164537"],"name":"IMAGE_TAG"},{"values":["http://52.18.93.49:8080/"],"name":"NOCODB_URL"},{"values":["false"],"name":"DEBUG_MODE"}]
