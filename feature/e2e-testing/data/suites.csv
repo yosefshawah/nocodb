@@ -1,0 +1,7 @@
+"DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
+"Test that the server is running and responding","693","test_server_up","yosef-code.tests","Tue Sep 23 15:18:00 UTC 2025","passed","Tue Sep 23 15:18:01 UTC 2025","TestServerHealth","test_server_health","",""
+"","735","test_add_employee_and_fetch","yosef-code.tests","Tue Sep 23 15:17:30 UTC 2025","passed","Tue Sep 23 15:17:31 UTC 2025","TestAddEmployee","test_add_employee","",""
+"Test that number of IT employees matches the count in IT department record","669","test_it_employees_match_department_count","yosef-code.tests","Tue Sep 23 15:18:10 UTC 2025","passed","Tue Sep 23 15:18:11 UTC 2025","TestTableRelation","test_table_relation","",""
+"","379","test_get_employees","yosef-code.tests","Tue Sep 23 15:17:50 UTC 2025","passed","Tue Sep 23 15:17:51 UTC 2025","TestGetEmployees","test_get_employees","",""
+"","0","test_create_new_table","tests","Tue Sep 23 15:19:08 UTC 2025","broken","Tue Sep 23 15:19:08 UTC 2025","TestCreateNewTable","test_create_table","",""
+"","685","test_delete_employee_id","yosef-code.tests","Tue Sep 23 15:17:40 UTC 2025","passed","Tue Sep 23 15:17:41 UTC 2025","TestDeleteEmployee","test_delete_employee","",""
