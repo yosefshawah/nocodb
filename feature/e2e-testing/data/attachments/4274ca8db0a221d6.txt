@@ -1,0 +1,5 @@
+[debug] BASE_URL from config: http://52.18.93.49:8080/
+[debug] Environment BASE_URL: None
+[debug] Environment NOCODB_URL: http://52.18.93.49:8080/
+[debug] Environment EC2_HOST: None
+[timing] Service health check: 0.36s
