@@ -174,7 +174,7 @@ jobs:
         with:
           fetch-depth: 1 # Fetch only the latest commit to speed up the checkout process
           repository: yosefshawah/nocodb-UI-testing # Replace with your UI testing repo
-          token: ${{ secrets.UI_TESTING_GITHUB_TOKEN }} # Use the token to access the repo
+          token: ${{ secrets.GITHUB_TOKEN }} # Use the token to access the repo
 
       - name: Set up Python
         uses: actions/setup-python@v4
