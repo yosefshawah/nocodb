@@ -119,6 +119,10 @@ jobs:
               exit 1
             fi
             $DCMD down || true
+
+            # Clean up Docker resources
+            docker system prune -a -f --volumes
+
             cat > .env << EOF
             IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
             DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
