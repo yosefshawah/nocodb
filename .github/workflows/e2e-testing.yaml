@@ -249,7 +249,7 @@ jobs:
 
   allure-report:
     runs-on: ubuntu-22.04
-    needs: [api-tests, selenium-tests, build-and-push]
+    needs: [api-tests, ui-tests, build-and-push]
     if: always()
     steps:
       - name: Download API test results
