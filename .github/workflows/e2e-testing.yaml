@@ -366,3 +366,9 @@ jobs:
           destination_dir: ${{ github.head_ref || github.ref_name }}
           publish_branch: gh-pages
           keep_files: true
+
+      - name: Print Allure Report URL
+        run: |
+          BRANCH="${{ github.head_ref || github.ref_name }}"
+          echo "Allure report should be available at:"
+          echo "https://yosefshawah.github.io/nocodb/$BRANCH/"
