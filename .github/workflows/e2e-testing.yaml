@@ -48,11 +48,19 @@ jobs:
   build-and-push:
     runs-on: ubuntu-22.04
     outputs:
-      image_tag: ${{ steps.tag.outputs.image_tag }}
+      nocodb_image_tag: ${{ steps.compute_tag.outputs.tag }}
     env:
       IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/nocodb-custom
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Compute image tag
+        id: compute_tag
+        run: |
+          TAG="${GITHUB_SHA}-$(date +%Y%m%d-%H%M%S)"
+          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - uses: actions/setup-node@v4
         with:
@@ -81,16 +89,13 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Tag, push and set IMAGE_TAG (timestamp)
-        id: tag
+      - name: Tag and push image
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
-          TS=$(date -u +%Y%m%d%H%M%S)
-          PR=${{ github.event.pull_request.number }}
-          TAG="pr-$PR-$TS"
-          docker tag nocodb-local $IMAGE:$TAG
-          docker push $IMAGE:$TAG
-          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
+          # Tag the locally built image with our computed tag
+          docker tag nocodb-local:latest $IMAGE:${{ env.IMAGE_TAG }}
+          docker push $IMAGE:${{ env.IMAGE_TAG }}
+          echo "Image pushed: $IMAGE:${{ env.IMAGE_TAG }}"
 
   deploy-to-ec2:
     runs-on: ubuntu-22.04
@@ -124,7 +129,7 @@ jobs:
             docker system prune -a -f --volumes
 
             cat > .env << EOF
-            IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
+            IMAGE_TAG=${{ needs.build-and-push.outputs.nocodb_image_tag }}
             DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
             EOF
 
@@ -190,7 +195,7 @@ jobs:
           HOST: ec2-52-18-93-49.eu-west-1.compute.amazonaws.com
           KEY_FILE: ${{ github.workspace }}/ec2_key.pem
           NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
-          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.nocodb_image_tag }}
         run: |
           pytest -vv -s yosef-code/tests --alluredir=allure-results
 
@@ -298,7 +303,7 @@ jobs:
     needs: [api-tests, ui-tests, build-and-push]
     if: always()
     env:
-      IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag || 'manual-run' }}
+      IMAGE_TAG: ${{ needs.build-and-push.outputs.nocodb_image_tag || 'manual-run' }}
       NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
       TEST_ENVIRONMENT: ${{ github.event_name == 'pull_request' && format('PR-{0}', github.event.pull_request.number) || format('{0}', github.event.inputs.environment || 'Manual') }}
     steps:
@@ -306,60 +311,29 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: allure-results-api
-          path: allure-results-api
+          path: ./artifacts/allure-results-api
         continue-on-error: true
 
       - name: Download UI test results
         uses: actions/download-artifact@v4
         with:
           name: allure-results-ui
-          path: allure-results-ui
+          path: ./artifacts/allure-results-ui
         continue-on-error: true
 
       - name: Combine and prepare Allure results
         run: |
           mkdir -p allure-results
 
-          # Copy API test results if they exist
-          if [ -d "allure-results-api" ]; then
-            echo "Copying API test results..."
-            cp -r allure-results-api/* allure-results/ 2>/dev/null || true
-            echo "API results copied: $(ls -la allure-results-api/ | wc -l) files"
-          else
-            echo "No API test results found"
-          fi
-
-          # Copy UI test results if they exist
-          if [ -d "allure-results-ui" ]; then
-            echo "Copying UI test results..."
-            # Ensure we don't overwrite, rename conflicting files
-            for file in allure-results-ui/*; do
-              if [ -f "$file" ]; then
-                filename=$(basename "$file")
-                if [ -f "allure-results/$filename" ]; then
-                  # Add UI prefix to avoid conflicts
-                  cp "$file" "allure-results/ui-$filename"
-                else
-                  cp "$file" "allure-results/$filename"
-                fi
-              fi
-            done
-            echo "UI results copied: $(ls -la allure-results-ui/ | wc -l) files"
-          else
-            echo "No UI test results found"
-          fi
-
-          echo "Combined results: $(ls -la allure-results/ | wc -l) files"
-
-      - name: Create comprehensive Allure environment.properties
-        run: |
-          mkdir -p allure-results
-          cat > allure-results/environment.properties <<EOF
+          # Create global environment properties
+          cat > allure-results/environment.properties << EOF
+          Test.Framework=Pytest+API+Selenium
+          CI.Platform=GitHub Actions
+          Test.Types=API Testing, UI Automation
+          Browsers=Chrome (Headless)
+          Target.URL=${{ env.NOCODB_URL }}
+          NocoDB.Image=${{ secrets.DOCKERHUB_USERNAME }}/nocodb-custom:${{ env.IMAGE_TAG }}
           Environment=${{ env.TEST_ENVIRONMENT }}
-          Test.Suite=${{ github.event.inputs.test_suite || 'both' }}
-          Image.Tag=${{ env.IMAGE_TAG }}
-          NocoDB.URL=${{ env.NOCODB_URL }}
-          Debug.Mode=${{ github.event.inputs.debug_mode || 'false' }}
           GitHub.Run.ID=${{ github.run_id }}
           GitHub.Actor=${{ github.actor }}
           Workflow.Trigger=${{ github.event_name }}
@@ -369,38 +343,101 @@ jobs:
           Timestamp=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
           EOF
 
-          echo "Environment properties created:"
-          cat allure-results/environment.properties
+          # Check if artifacts directory exists and has content
+          if [ -d "./artifacts" ] && [ "$(ls -A ./artifacts)" ]; then
+            echo "Found artifacts, merging..."
+            
+            # Use a counter for truly unique filenames
+            counter=1
+            
+            for dir in ./artifacts/allure-results-*; do
+              if [ -d "$dir" ]; then
+                echo "Processing $dir"
+                
+                # Extract test type from directory name
+                test_type=$(basename "$dir" | sed 's/allure-results-//')
+                echo "Test type: $test_type"
+                
+                # Copy all files directly, but with unique names to avoid overwrites
+                for file in "$dir"/*; do
+                  if [ -f "$file" ]; then
+                    filename=$(basename "$file")
+                    extension="${filename##*.}"
+                    basename_no_ext="${filename%.*}"
+                    
+                    # Create unique filename: original-name-testtype-counter.extension
+                    if [ "$filename" = "environment.properties" ]; then
+                      # Skip individual environment.properties files (we have a global one)
+                      continue
+                    else
+                      unique_filename="${basename_no_ext}-${test_type}-${counter}.${extension}"
+                    fi
+                    
+                    cp "$file" "allure-results/${unique_filename}" 2>/dev/null || echo "Could not copy $file"
+                    echo "Copied $filename as $unique_filename"
+                  fi
+                done
+                
+                counter=$((counter + 1))
+              fi
+            done
+            
+            # Show what we have
+            echo "Final allure-results contents:"
+            ls -la allure-results/
+            echo "JSON files count:"
+            ls -1 allure-results/*.json 2>/dev/null | wc -l
+            
+          else
+            echo "No artifacts found, creating empty results directory"
+            touch allure-results/.gitkeep
+          fi
 
-      - name: Generate Allure report with custom settings
+      - name: Get Allure history
+        uses: actions/checkout@v4
+        if: always()
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "microsoft"
+          java-version: "17"
+
+      - name: Setup Allure
         run: |
-          npm install -g allure-commandline
+          wget -q -L https://github.com/allure-framework/allure2/releases/download/2.25.0/allure-2.25.0.tgz -O allure-2.25.0.tgz
+          sudo tar -xzf allure-2.25.0.tgz -C /opt/
+          sudo ln -sf /opt/allure-2.25.0/bin/allure /usr/bin/allure
+          allure --version
 
-          # Create allure.yml configuration for better report generation
-          cat > allure.yml <<EOF
-          version: 2
-          plugins:
-            - junit-xml-plugin
-            - xunit-xml-plugin
-            - trx-plugin
-            - behaviors-plugin
-            - packages-plugin
-            - screen-diff-plugin
-            - xctest-plugin
-            - jira-plugin
-            - xray-plugin
-          EOF
+      - name: Generate Allure report
+        run: |
+          # Copy previous history if available
+          if [ -d "gh-pages/allure-history" ]; then
+            echo "Copying Allure history..."
+            cp -r gh-pages/allure-history allure-results/history
+          fi
 
-          # Generate report with configuration
+          # Generate report
           if [ -d "allure-results" ] && [ "$(ls -A allure-results)" ]; then
-            allure generate allure-results --clean -o allure-report --config allure.yml
+            allure generate allure-results --clean -o allure-report
             echo "Allure report generated successfully"
             
-            # Add custom title and description
+            # Add custom title
             if [ -f "allure-report/index.html" ]; then
               sed -i 's/<title>Allure Report<\/title>/<title>NocoDB E2E Test Report<\/title>/g' allure-report/index.html
               echo "Report title updated"
             fi
+
+            # Backup history for next run
+            mkdir -p allure-report/history
+            cp -r allure-report/history gh-pages/allure-history/ 2>/dev/null || mkdir -p gh-pages/allure-history
+            
           else
             echo "No test results found to generate report"
             mkdir -p allure-report
@@ -431,7 +468,7 @@ jobs:
     needs: [allure-report, build-and-push]
     if: always()
     env:
-      IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag || 'manual-run' }}
+      IMAGE_TAG: ${{ needs.build-and-push.outputs.nocodb_image_tag || 'manual-run' }}
     steps:
       - name: Checkout gh-pages branch
         uses: actions/checkout@v4
@@ -546,13 +583,11 @@ jobs:
         run: |
           echo "🎉 Allure reports deployed successfully!"
           echo ""
+          echo "📊 All Reports Index:"
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          echo ""
           echo "📊 Latest Report (Run ${{ github.run_id }}):"
-          echo "https://yosefshawah.github.io/nocodb/reports/run-${{ github.run_id }}/"
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/run-${{ github.run_id }}/"
           echo ""
-          echo "🏠 All Reports Index:"
-          echo "https://yosefshawah.github.io/nocodb/"
+          echo "🏷️ Image Tag: ${{ env.IMAGE_TAG }}"
           echo ""
-          echo "📋 Report Details:"
-          echo "  - Image Tag: ${{ env.IMAGE_TAG }}"
-          echo "  - Run ID: ${{ github.run_id }}"
-          echo "  - Trigger: ${{ github.event_name }}"
