@@ -85,11 +85,24 @@ jobs:
         id: tag
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
+          set -e
           TS=$(date -u +%Y%m%d%H%M%S)
           PR=${{ github.event.pull_request.number }}
           TAG="pr-$PR-$TS"
-          docker tag nocodb-local $IMAGE:$TAG
-          docker push $IMAGE:$TAG
+
+          echo "Looking for built image 'nocodb-local'..."
+          docker images | grep -E '^nocodb-local\s' || true
+
+          IMAGE_ID=$(docker images --format '{{.Repository}}:{{.Tag}} {{.ID}}' | awk '$1 ~ /^nocodb-local(:|$)/ {print $2; exit}')
+          if [ -z "$IMAGE_ID" ]; then
+            echo "ERROR: nocodb-local image not found. Available images:"
+            docker images
+            exit 1
+          fi
+
+          echo "Tagging image ID $IMAGE_ID as $IMAGE:$TAG"
+          docker tag "$IMAGE_ID" "$IMAGE:$TAG"
+          docker push "$IMAGE:$TAG"
           echo "image_tag=$TAG" >> $GITHUB_OUTPUT
 
   deploy-to-ec2:
