@@ -79,7 +79,7 @@ jobs:
           ls -la
           ls -la nocodb || true
 
-      - name: Build local image (nocodb-local)
+      - name: Build custom image (nocodb-custom)
         run: bash ./build-local-docker-image.sh
 
       - name: Docker login
@@ -92,8 +92,13 @@ jobs:
       - name: Tag and push image
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
+          # List available images for debugging
+          echo "Available images:"
+          docker images | grep nocodb || echo "No nocodb images found"
+
           # Tag the locally built image with our computed tag
-          docker tag nocodb-local:latest $IMAGE:${{ env.IMAGE_TAG }}
+          # The build script creates 'nocodb-custom' (without :latest tag)
+          docker tag nocodb-custom $IMAGE:${{ env.IMAGE_TAG }}
           docker push $IMAGE:${{ env.IMAGE_TAG }}
           echo "Image pushed: $IMAGE:${{ env.IMAGE_TAG }}"
 
