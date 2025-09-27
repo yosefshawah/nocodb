@@ -462,127 +462,66 @@ jobs:
     runs-on: ubuntu-22.04
     needs: [allure-report, build-and-push]
     if: always()
-    env:
-      IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag || 'manual-run' }}
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout gh-pages branch
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-        continue-on-error: true
-
-      - name: Setup gh-pages branch if it doesn't exist
-        run: |
-          if ! git show-ref --verify --quiet refs/heads/gh-pages; then
-            echo "Creating gh-pages branch..."
-            git checkout --orphan gh-pages
-            git rm -rf .
-            echo "<h1>NocoDB Test Reports</h1>" > index.html
-            git add index.html
-            git commit -m "Initial gh-pages commit"
-            git push origin gh-pages
-          else
-            echo "gh-pages branch exists"
-          fi
-
       - name: Download Allure report
         uses: actions/download-artifact@v4
         with:
           name: allure-report-${{ github.run_id }}
-          path: downloaded-report
+          path: allure-artifacts
 
-      - name: Deploy to root of gh-pages (unified reports)
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Prepare Allure report for Pages
         run: |
-          # Configure git
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          # Create the _site directory for GitHub Pages
+          mkdir -p _site
 
-          # Create report directory structure
-          REPORT_DIR="reports/run-${{ github.run_id }}"
-          mkdir -p "$REPORT_DIR"
-
-          # Copy the generated report
-          if [ -d "downloaded-report/allure-report" ]; then
-            cp -r downloaded-report/allure-report/* "$REPORT_DIR/"
-            echo "Report copied to $REPORT_DIR"
+          # Copy the generated Allure report directly
+          if [ -d "allure-artifacts/allure-report" ] && [ "$(ls -A allure-artifacts/allure-report)" ]; then
+            echo "📊 Found Allure report, copying to _site..."
+            cp -r allure-artifacts/allure-report/* _site/
+            echo "✅ Allure report copied successfully"
+            echo "Files in _site: $(ls -la _site/ | wc -l)"
           else
-            echo "No report found to deploy"
-            mkdir -p "$REPORT_DIR"
-            cat > "$REPORT_DIR/index.html" <<EOF
-            <!DOCTYPE html>
-            <html>
-            <head><title>NocoDB Test Report - No Results</title></head>
-            <body>
-              <h1>No Test Results Available</h1>
-              <p>Run ID: ${{ github.run_id }}</p>
-              <p>Image Tag: ${{ env.IMAGE_TAG }}</p>
-            </body>
-            </html>
-          EOF
-          fi
-
-          # Create/update main index page with links to all reports
-          cat > index.html <<EOF
+            echo "⚠️ No Allure report found in artifacts"
+            echo "Available artifacts:"
+            find allure-artifacts -type f 2>/dev/null || echo "No artifacts directory"
+            
+            # Create a simple index if no report exists
+            cat > _site/index.html <<EOF
           <!DOCTYPE html>
           <html>
-          <head>
-            <title>NocoDB E2E Test Reports</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 40px; }
-              .report-link { display: block; margin: 10px 0; padding: 10px; background: #f5f5f5; text-decoration: none; color: #333; border-radius: 5px; }
-              .report-link:hover { background: #e5e5e5; }
-              .latest { background: #e8f5e8; border-left: 4px solid #4caf50; }
-              .env-info { background: #f0f8ff; padding: 15px; border-radius: 5px; margin: 20px 0; }
-            </style>
-          </head>
+          <head><title>NocoDB Test Report - No Results</title></head>
           <body>
-            <h1>NocoDB E2E Test Reports</h1>
-            <div class="env-info">
-              <h3>Latest Run Information</h3>
-              <p><strong>Run ID:</strong> ${{ github.run_id }}</p>
-              <p><strong>Image Tag:</strong> ${{ env.IMAGE_TAG }}</p>
-              <p><strong>Trigger:</strong> ${{ github.event_name }}</p>
-              <p><strong>Actor:</strong> ${{ github.actor }}</p>
-              <p><strong>Timestamp:</strong> $(date -u '+%Y-%m-%d %H:%M:%S UTC')</p>
-            </div>
-            
-            <h2>Available Reports</h2>
-            <a href="reports/run-${{ github.run_id }}/" class="report-link latest">
-              🔥 Latest Report - Run ${{ github.run_id }} (Image: ${{ env.IMAGE_TAG }})
-            </a>
+            <h1>No Test Results Available</h1>
+            <p>Run ID: ${{ github.run_id }}</p>
+            <p>No Allure report was generated for this run.</p>
+          </body>
+          </html>
           EOF
-
-          # Add links to existing reports (last 10)
-          for dir in reports/run-*/; do
-            if [ -d "$dir" ] && [ "$dir" != "reports/run-${{ github.run_id }}/" ]; then
-              run_num=$(basename "$dir" | sed 's/run-//')
-              echo "            <a href=\"$dir\" class=\"report-link\">📊 Report - Run $run_num</a>" >> index.html
-            fi
-          done | head -10
-
-          echo "          </body></html>" >> index.html
-
-          # Add and commit changes
-          git add .
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Deploy Allure report for run ${{ github.run_id }} (Image: ${{ env.IMAGE_TAG }})"
-            git push origin gh-pages
-            echo "Report deployed successfully"
           fi
 
-      - name: Print Allure Report URLs
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Print Allure Report URL
         run: |
-          echo "🎉 Allure reports deployed successfully!"
+          echo "🎉 Allure report deployed successfully!"
           echo ""
-          echo "📊 All Reports Index:"
-          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          echo "📊 Allure Report URL:"
+          echo "${{ steps.deployment.outputs.page_url }}"
           echo ""
-          echo "📊 Latest Report (Run ${{ github.run_id }}):"
-          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/run-${{ github.run_id }}/"
-          echo ""
-          echo "🏷️ Image Tag: ${{ env.IMAGE_TAG }}"
-          echo ""
+          echo "🏷️ Image Tag: ${{ needs.build-and-push.outputs.image_tag || 'manual-run' }}"
