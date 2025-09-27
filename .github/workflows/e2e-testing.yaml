@@ -306,42 +306,48 @@ jobs:
           name: allure-results-ui
           path: allure-results/**
 
-  allure-report:
+  publish-allure:
     runs-on: ubuntu-22.04
     needs: [api-tests, ui-tests, build-and-push]
     if: always()
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     env:
       IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag || 'manual-run' }}
       NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
       TEST_ENVIRONMENT: ${{ github.event_name == 'pull_request' && format('PR-{0}', github.event.pull_request.number) || format('{0}', github.event.inputs.environment || 'Manual') }}
     steps:
-      - name: Download API test results
+      - name: Download API Allure results
         uses: actions/download-artifact@v4
         with:
           name: allure-results-api
-          path: ./artifacts/allure-results-api
+          path: allure-download/api
         continue-on-error: true
 
-      - name: Download UI test results
+      - name: Download UI Allure results
         uses: actions/download-artifact@v4
         with:
           name: allure-results-ui
-          path: ./artifacts/allure-results-ui
+          path: allure-download/ui
         continue-on-error: true
 
-      - name: Combine and prepare Allure results
+      - name: Merge results and add environment.properties
         run: |
           mkdir -p allure-results
-
-          # Create global environment properties
-          cat > allure-results/environment.properties << EOF
-          Test.Framework=Pytest+API+Selenium
-          CI.Platform=GitHub Actions
-          Test.Types=API Testing, UI Automation
-          Browsers=Chrome (Headless)
-          Target.URL=${{ env.NOCODB_URL }}
-          NocoDB.Image=${{ secrets.DOCKERHUB_USERNAME }}/nocodb-custom:${{ env.IMAGE_TAG }}
+          if [ -d "allure-download/api" ]; then
+            cp -r allure-download/api/* allure-results/ 2>/dev/null || true
+          fi
+          if [ -d "allure-download/ui" ]; then
+            cp -r allure-download/ui/* allure-results/ 2>/dev/null || true
+          fi
+          cat > allure-results/environment.properties <<EOF
           Environment=${{ env.TEST_ENVIRONMENT }}
+          Image.Tag=${{ env.IMAGE_TAG }}
+          NocoDB.URL=${{ env.NOCODB_URL }}
           GitHub.Run.ID=${{ github.run_id }}
           GitHub.Actor=${{ github.actor }}
           Workflow.Trigger=${{ github.event_name }}
@@ -351,175 +357,18 @@ jobs:
           Timestamp=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
           EOF
 
-          # Check if artifacts directory exists and has content
-          if [ -d "./artifacts" ] && [ "$(ls -A ./artifacts)" ]; then
-            echo "Found artifacts, merging..."
-            
-            # Use a counter for truly unique filenames
-            counter=1
-            
-            for dir in ./artifacts/allure-results-*; do
-              if [ -d "$dir" ]; then
-                echo "Processing $dir"
-                
-                # Extract test type from directory name
-                test_type=$(basename "$dir" | sed 's/allure-results-//')
-                echo "Test type: $test_type"
-                
-                # Copy all files directly, but with unique names to avoid overwrites
-                for file in "$dir"/*; do
-                  if [ -f "$file" ]; then
-                    filename=$(basename "$file")
-                    extension="${filename##*.}"
-                    basename_no_ext="${filename%.*}"
-                    
-                    # Create unique filename: original-name-testtype-counter.extension
-                    if [ "$filename" = "environment.properties" ]; then
-                      # Skip individual environment.properties files (we have a global one)
-                      continue
-                    else
-                      unique_filename="${basename_no_ext}-${test_type}-${counter}.${extension}"
-                    fi
-                    
-                    cp "$file" "allure-results/${unique_filename}" 2>/dev/null || echo "Could not copy $file"
-                    echo "Copied $filename as $unique_filename"
-                  fi
-                done
-                
-                counter=$((counter + 1))
-              fi
-            done
-            
-            # Show what we have
-            echo "Final allure-results contents:"
-            ls -la allure-results/
-            echo "JSON files count:"
-            ls -1 allure-results/*.json 2>/dev/null | wc -l
-            
-          else
-            echo "No artifacts found, creating empty results directory"
-            touch allure-results/.gitkeep
-          fi
-
-      - name: Get Allure history
-        uses: actions/checkout@v4
-        if: always()
-        continue-on-error: true
-        with:
-          ref: gh-pages
-          path: gh-pages
-          fetch-depth: 0
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: "microsoft"
-          java-version: "17"
-
       - name: Setup Allure
         run: |
-          wget -q -L https://github.com/allure-framework/allure2/releases/download/2.25.0/allure-2.25.0.tgz -O allure-2.25.0.tgz
-          sudo tar -xzf allure-2.25.0.tgz -C /opt/
-          sudo ln -sf /opt/allure-2.25.0/bin/allure /usr/bin/allure
+          npm install -g allure-commandline
           allure --version
 
       - name: Generate Allure report
         run: |
-          # Copy previous history if available
-          if [ -d "gh-pages/allure-history" ]; then
-            echo "Copying Allure history..."
-            cp -r gh-pages/allure-history allure-results/history
-          fi
-
-          # Generate report
-          if [ -d "allure-results" ] && [ "$(ls -A allure-results)" ]; then
-            allure generate allure-results --clean -o allure-report
-            echo "Allure report generated successfully"
-            
-            # Add custom title
-            if [ -f "allure-report/index.html" ]; then
-              sed -i 's/<title>Allure Report<\/title>/<title>NocoDB E2E Test Report<\/title>/g' allure-report/index.html
-              echo "Report title updated"
-            fi
-
-            # Backup history for next run
-            mkdir -p allure-report/history
-            cp -r allure-report/history gh-pages/allure-history/ 2>/dev/null || mkdir -p gh-pages/allure-history
-            
-          else
-            echo "No test results found to generate report"
-            mkdir -p allure-report
-            cat > allure-report/index.html <<EOF
-            <!DOCTYPE html>
-            <html>
-            <head><title>NocoDB E2E Test Report - No Results</title></head>
-            <body>
-              <h1>No Test Results Available</h1>
-              <p>Environment: ${{ env.TEST_ENVIRONMENT }}</p>
-              <p>Image Tag: ${{ env.IMAGE_TAG }}</p>
-              <p>Run ID: ${{ github.run_id }}</p>
-            </body>
-            </html>
-          EOF
-          fi
-
-      - name: Upload Allure artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-report-${{ github.run_id }}
-          path: |
-            allure-results/**
-            allure-report/**
-
-  deploy-allure-pages:
-    runs-on: ubuntu-22.04
-    needs: [allure-report, build-and-push]
-    if: always()
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Download Allure report
-        uses: actions/download-artifact@v4
-        with:
-          name: allure-report-${{ github.run_id }}
-          path: allure-artifacts
+          allure generate allure-results --clean -o _site
+          touch _site/.nojekyll
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
-
-      - name: Prepare Allure report for Pages
-        run: |
-          # Create the _site directory for GitHub Pages
-          mkdir -p _site
-
-          # Copy the generated Allure report directly
-          if [ -d "allure-artifacts/allure-report" ] && [ "$(ls -A allure-artifacts/allure-report)" ]; then
-            echo "📊 Found Allure report, copying to _site..."
-            cp -r allure-artifacts/allure-report/* _site/
-            echo "✅ Allure report copied successfully"
-            echo "Files in _site: $(ls -la _site/ | wc -l)"
-          else
-            echo "⚠️ No Allure report found in artifacts"
-            echo "Available artifacts:"
-            find allure-artifacts -type f 2>/dev/null || echo "No artifacts directory"
-            
-            # Create a simple index if no report exists
-            cat > _site/index.html <<EOF
-          <!DOCTYPE html>
-          <html>
-          <head><title>NocoDB Test Report - No Results</title></head>
-          <body>
-            <h1>No Test Results Available</h1>
-            <p>Run ID: ${{ github.run_id }}</p>
-            <p>No Allure report was generated for this run.</p>
-          </body>
-          </html>
-          EOF
-          fi
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -529,12 +378,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-      - name: Print Allure Report URL
-        run: |
-          echo "🎉 Allure report deployed successfully!"
-          echo ""
-          echo "📊 Allure Report URL:"
-          echo "${{ steps.deployment.outputs.page_url }}"
-          echo ""
-          echo "🏷️ Image Tag: ${{ needs.build-and-push.outputs.image_tag || 'manual-run' }}"
