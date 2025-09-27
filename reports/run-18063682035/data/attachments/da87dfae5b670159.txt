@@ -1,0 +1,29 @@
+Warning: Permanently added 'ec2-52-18-93-49.eu-west-1.compute.amazonaws.com' (ED25519) to the list of known hosts.
+time="2025-09-27T18:38:48Z" level=warning msg="/home/ubuntu/app/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+ Container noco  Restarting
+ Container noco  Started
+[LoginPage] 🔄 Navigating to login page: http://52.18.93.49:8080/dashboard/
+[LoginPage] 🔄 Verifying we are on Login Page
+[LoginPage] ✅ Successfully verified we are on Login Page
+[LoginPage] 🔄 Checking for presence of Email input field
+[LoginPage] ✅ Email input field is present on the page
+[LoginPage] 🔄 Checking for presence of Password input field
+[LoginPage] ✅ Password input field is present on the page
+[LoginPage] ✅ Successfully navigated to login page
+[LoginPage] 🔄 Entering email: admin@example.com
+[LoginPage] ✅ Email entered successfully
+[LoginPage] 🔄 Entering password
+[LoginPage] ✅ Password entered successfully
+[LoginPage] 🔄 Clicking login button
+[LoginPage] 🔄 Checking for presence of Login button
+[LoginPage] ✅ Login button is present on the page
+[LoginPage] ✅ Login button clicked
+[LoginPage] 🔄 Waiting for login to complete
+[LoginPage] ✅ Login completed successfully - redirected to dashboard
+[LoginPage] 📄 Dashboard loaded - URL: http://52.18.93.49:8080/dashboard/#/
+[SidebarPage] 🔄 Clicking company-x base in sidebar
+[SidebarPage] ✅ Clicked company-x base
+[SidebarPage] 🔄 Clicking Duplicate button for company-x base
+[SidebarPage] ✅ Clicked Duplicate button
+[SidebarPage] 🔄 Clicking 'Duplicate Base' button in modal
+[SidebarPage] ✅ Clicked 'Duplicate Base' button

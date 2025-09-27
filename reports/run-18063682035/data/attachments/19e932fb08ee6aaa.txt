@@ -1,0 +1,12 @@
+[debug] Running remote database reset for tests/test_duplicate_base.py::TestDuplicateBase::test_duplicate_base
+[debug] SSH_HOST: ec2-52-18-93-49.eu-west-1.compute.amazonaws.com
+[debug] SSH_USER: ubuntu
+[debug] SSH_KEY_FILE: /home/runner/work/nocodb/nocodb/ec2_key.pem
+[debug] RESET_SCRIPT: /home/ubuntu/app/scripts/reset_db.sh
+[debug] SSH key permissions: -rw-------
+[timing] tests/test_duplicate_base.py::TestDuplicateBase::test_duplicate_base remote reset+health: 8.59s
+[debug] CI environment detected: True
+[debug] HEADLESS env var: 'true'
+[debug] Should run headless: True
+🤖 Running in headless mode
+[timing] tests/test_duplicate_base.py::TestDuplicateBase::test_duplicate_base test duration: 11.26s
