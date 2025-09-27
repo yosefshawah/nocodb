@@ -48,19 +48,11 @@ jobs:
   build-and-push:
     runs-on: ubuntu-22.04
     outputs:
-      nocodb_image_tag: ${{ steps.compute_tag.outputs.tag }}
+      image_tag: ${{ steps.tag.outputs.image_tag }}
     env:
       IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/nocodb-custom
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Compute image tag
-        id: compute_tag
-        run: |
-          TAG="${GITHUB_SHA}-$(date +%Y%m%d-%H%M%S)"
-          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
@@ -79,21 +71,8 @@ jobs:
           ls -la
           ls -la nocodb || true
 
-      - name: Build custom image (nocodb-custom)
-        run: |
-          echo "Starting Docker image build..."
-          bash ./build-local-docker-image.sh
-
-          # Verify the image was created
-          echo "Checking if nocodb-custom image was created:"
-          docker images | grep nocodb-custom || {
-            echo "ERROR: nocodb-custom image was not created!"
-            echo "Build log contents:"
-            cat build-local-docker-image.log || echo "No log file found"
-            exit 1
-          }
-
-          echo "✅ nocodb-custom image created successfully"
+      - name: Build local image (nocodb-local)
+        run: bash ./build-local-docker-image.sh
 
       - name: Docker login
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
@@ -102,30 +81,16 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Tag and push image
+      - name: Tag, push and set IMAGE_TAG (timestamp)
+        id: tag
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
-          # List available images for debugging
-          echo "Available images:"
-          docker images | grep nocodb || echo "No nocodb images found"
-
-          # Verify nocodb-custom exists before tagging
-          if ! docker images | grep -q nocodb-custom; then
-            echo "ERROR: nocodb-custom image not found!"
-            echo "Available images:"
-            docker images
-            exit 1
-          fi
-
-          # Tag the locally built image with our computed tag
-          # The build script creates 'nocodb-custom' (without :latest tag)
-          echo "Tagging image: nocodb-custom -> $IMAGE:${{ env.IMAGE_TAG }}"
-          docker tag nocodb-custom $IMAGE:${{ env.IMAGE_TAG }}
-
-          echo "Pushing image: $IMAGE:${{ env.IMAGE_TAG }}"
-          docker push $IMAGE:${{ env.IMAGE_TAG }}
-
-          echo "✅ Image pushed successfully: $IMAGE:${{ env.IMAGE_TAG }}"
+          TS=$(date -u +%Y%m%d%H%M%S)
+          PR=${{ github.event.pull_request.number }}
+          TAG="pr-$PR-$TS"
+          docker tag nocodb-local $IMAGE:$TAG
+          docker push $IMAGE:$TAG
+          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
 
   deploy-to-ec2:
     runs-on: ubuntu-22.04
@@ -159,7 +124,7 @@ jobs:
             docker system prune -a -f --volumes
 
             cat > .env << EOF
-            IMAGE_TAG=${{ needs.build-and-push.outputs.nocodb_image_tag }}
+            IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
             DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
             EOF
 
@@ -225,7 +190,7 @@ jobs:
           HOST: ec2-52-18-93-49.eu-west-1.compute.amazonaws.com
           KEY_FILE: ${{ github.workspace }}/ec2_key.pem
           NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
-          IMAGE_TAG: ${{ needs.build-and-push.outputs.nocodb_image_tag }}
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
         run: |
           pytest -vv -s yosef-code/tests --alluredir=allure-results
 
@@ -333,7 +298,7 @@ jobs:
     needs: [api-tests, ui-tests, build-and-push]
     if: always()
     env:
-      IMAGE_TAG: ${{ needs.build-and-push.outputs.nocodb_image_tag || 'manual-run' }}
+      IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag || 'manual-run' }}
       NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
       TEST_ENVIRONMENT: ${{ github.event_name == 'pull_request' && format('PR-{0}', github.event.pull_request.number) || format('{0}', github.event.inputs.environment || 'Manual') }}
     steps:
@@ -498,7 +463,7 @@ jobs:
     needs: [allure-report, build-and-push]
     if: always()
     env:
-      IMAGE_TAG: ${{ needs.build-and-push.outputs.nocodb_image_tag || 'manual-run' }}
+      IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag || 'manual-run' }}
     steps:
       - name: Checkout gh-pages branch
         uses: actions/checkout@v4

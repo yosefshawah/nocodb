@@ -14,13 +14,13 @@ ERROR=""
 
 function stop_and_remove_container() {
     # Stop and remove the existing container
-    docker stop nocodb-custom >/dev/null 2>&1
-    docker rm nocodb-custom >/dev/null 2>&1
+    docker stop nocodb-local >/dev/null 2>&1
+    docker rm nocodb-local >/dev/null 2>&1
 }
 
 function remove_image() {
     # Remove the existing image
-    docker rmi nocodb-custom >/dev/null 2>&1
+    docker rmi nocodb-local >/dev/null 2>&1
 }
 
 function install_dependencies() {
@@ -50,7 +50,17 @@ function package_nocodb() {
 
 function build_image() {
     # build docker
-    docker build . -f Dockerfile.local -t nocodb-custom || ERROR="build_image failed"
+    echo "Current directory: $(pwd)"
+    echo "Looking for Dockerfile.local..."
+    ls -la Dockerfile.local || echo "Dockerfile.local not found in current directory"
+    
+    # Ensure we're in the nocodb package directory for the build
+    cd ${SCRIPT_DIR}/packages/nocodb
+    echo "Building from directory: $(pwd)"
+    echo "Available files:"
+    ls -la | head -10
+    
+    docker build . -f Dockerfile.local -t nocodb-local || ERROR="build_image failed"
 }
 
 function log_message() {
@@ -58,10 +68,24 @@ function log_message() {
     then
         >&2 echo "build failed, Please check build-local-docker-image.log for more details"
         >&2 echo "ERROR: ${ERROR}"
+        
+        # Show the last 50 lines of the log for debugging
+        echo "=== Last 50 lines of build log ==="
+        tail -50 ${LOG_FILE} 2>/dev/null || echo "Could not read log file"
+        echo "================================="
+        
         exit 1
     else
-        echo 'docker image with tag "nocodb-custom" built sussessfully. Use below sample command to run the container'
-        echo 'docker run -d -p 3333:8080 --name nocodb-custom nocodb-custom '
+        echo 'docker image with tag "nocodb-local" built sussessfully. Use below sample command to run the container'
+        echo 'docker run -d -p 3333:8080 --name nocodb-local nocodb-local '
+        
+        # Verify the image was actually created
+        if docker images | grep -q nocodb-local; then
+            echo "✅ Verified: nocodb-local image exists"
+        else
+            >&2 echo "❌ ERROR: nocodb-local image was not created despite no build errors!"
+            exit 1
+        fi
     fi
 }
 
