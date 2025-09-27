@@ -1,0 +1,20 @@
+[debug] BASE_URL from config: http://52.18.93.49:8080/
+[debug] Environment BASE_URL: None
+[debug] Environment NOCODB_URL: http://52.18.93.49:8080/
+[debug] Environment EC2_HOST: None
+[debug] Environment KEY_FILE: /home/runner/work/nocodb/nocodb/ec2_key.pem
+[debug] Environment SSH_KEY_FILE: None
+[debug] Final SSH_KEY_FILE: /home/runner/work/nocodb/nocodb/ec2_key.pem
+[timing] Service health check: 0.65s
+[debug] Running remote database reset for tests/test_create_roles_gallery.py::TestCreateRolesGallery::test_create_roles_gallery
+[debug] SSH_HOST: ec2-52-18-93-49.eu-west-1.compute.amazonaws.com
+[debug] SSH_USER: ubuntu
+[debug] SSH_KEY_FILE: /home/runner/work/nocodb/nocodb/ec2_key.pem
+[debug] RESET_SCRIPT: /home/ubuntu/app/scripts/reset_db.sh
+[debug] SSH key permissions: -rw-------
+[timing] tests/test_create_roles_gallery.py::TestCreateRolesGallery::test_create_roles_gallery remote reset+health: 9.01s
+[debug] CI environment detected: True
+[debug] HEADLESS env var: 'true'
+[debug] Should run headless: True
+🤖 Running in headless mode
+[timing] tests/test_create_roles_gallery.py::TestCreateRolesGallery::test_create_roles_gallery test duration: 16.20s

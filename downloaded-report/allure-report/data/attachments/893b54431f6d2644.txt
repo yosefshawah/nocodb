@@ -1,0 +1,25 @@
+INFO     LoginPage:base_page.py:66 🔄 Navigating to login page: http://52.18.93.49:8080/dashboard/
+INFO     LoginPage:base_page.py:66 🔄 Verifying we are on Login Page
+INFO     LoginPage:base_page.py:70 ✅ Successfully verified we are on Login Page
+INFO     LoginPage:base_page.py:66 🔄 Checking for presence of Email input field
+INFO     LoginPage:base_page.py:70 ✅ Email input field is present on the page
+INFO     LoginPage:base_page.py:66 🔄 Checking for presence of Password input field
+INFO     LoginPage:base_page.py:70 ✅ Password input field is present on the page
+INFO     LoginPage:base_page.py:70 ✅ Successfully navigated to login page
+INFO     LoginPage:base_page.py:66 🔄 Entering email: admin@example.com
+INFO     LoginPage:base_page.py:70 ✅ Email entered successfully
+INFO     LoginPage:base_page.py:66 🔄 Entering password
+INFO     LoginPage:base_page.py:70 ✅ Password entered successfully
+INFO     LoginPage:base_page.py:66 🔄 Clicking login button
+INFO     LoginPage:base_page.py:66 🔄 Checking for presence of Login button
+INFO     LoginPage:base_page.py:70 ✅ Login button is present on the page
+INFO     LoginPage:base_page.py:70 ✅ Login button clicked
+INFO     LoginPage:base_page.py:66 🔄 Waiting for login to complete
+INFO     LoginPage:base_page.py:70 ✅ Login completed successfully - redirected to dashboard
+INFO     LoginPage:base_page.py:75 📄 Dashboard loaded - URL: http://52.18.93.49:8080/dashboard/#/
+INFO     SidebarPage:base_page.py:66 🔄 Clicking company-x base in sidebar
+INFO     SidebarPage:base_page.py:70 ✅ Clicked company-x base
+INFO     SidebarPage:base_page.py:66 🔄 Clicking Duplicate button for company-x base
+INFO     SidebarPage:base_page.py:70 ✅ Clicked Duplicate button
+INFO     SidebarPage:base_page.py:66 🔄 Clicking 'Duplicate Base' button in modal
+INFO     SidebarPage:base_page.py:70 ✅ Clicked 'Duplicate Base' button
