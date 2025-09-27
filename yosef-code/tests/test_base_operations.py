@@ -90,6 +90,49 @@ class TestBaseOperations:
         else:
             print("No bases found in the response")
 
+    def test_create_base(self):
+        """Test creating a new base - matches POST /api/v2/meta/bases/"""
+        url = f"{BASE_URL}api/v2/meta/bases/"
+        
+        # Create payload with required and optional fields
+        payload = {
+            "title": "Test Base Created by API",
+            "description": "This is a test base created via API testing",
+            "meta": {}
+        }
+        
+        response = make_api_request('POST', url, data=payload, headers=self.headers)
+        
+        assert response is not None, "No response received"
+        assert is_success_response(response), f"Create failed: {response.status_code} {response.text}"
+        
+        data = get_response_data(response)
+        assert data is not None, "Expected JSON body"
+        assert isinstance(data, dict), f"Expected dict response, got {type(data)}"
+        
+        # Verify essential fields in the created base response
+        assert "id" in data, "Missing base id field in response"
+        assert "title" in data, "Missing base title field in response"
+        
+        # Verify the created base has the correct title
+        assert data["title"] == payload["title"], f"Expected title '{payload['title']}', got '{data.get('title')}'"
+        
+        # Verify field types
+        assert isinstance(data["id"], str), "Base id should be string"
+        assert isinstance(data["title"], str), "Base title should be string"
+        
+        # Verify non-empty values
+        assert len(data["id"]) > 0, "Base id should not be empty"
+        assert len(data["title"]) > 0, "Base title should not be empty"
+        
+        # Check if description was set (optional field)
+        if "description" in data:
+            assert data["description"] == payload["description"], f"Expected description '{payload['description']}', got '{data.get('description')}'"
+        
+        created_base_id = data["id"]
+        print(f"Successfully created base - Title: {data.get('title')}, ID: {created_base_id}")
+      
+
     
 
     
