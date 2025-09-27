@@ -5,14 +5,19 @@ Contains common settings, API tokens, table IDs, and helper functions
 
 import os
 import requests
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Base configuration - use environment variables with fallbacks
-BASE_URL = os.getenv('NOCODB_URL', 'http://52.18.93.49:8080/')
+# For local testing, set NOCODB_URL=http://localhost:8080/ in your environment
+BASE_URL = os.getenv('NOCODB_URL', 'http://localhost:8080/')  # Default to localhost for local testing
 API_TOKEN = os.getenv('API_TOKEN', 'xpkrixNKoiHqfwzsIDoNh7MLRjP4FLR48gV3QFgQ')  # no fallback; token varies per instance
 NC_ADMIN_EMAIL = os.getenv('NC_ADMIN_EMAIL', 'admin@example.com')
 NC_ADMIN_PASSWORD = os.getenv('NC_ADMIN_PASSWORD', '12341234')
 # Environment detection
-ENVIRONMENT = os.getenv('ENVIRONMENT', 'production')
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'local')
 
 # Descriptive table ID for employees (if needed elsewhere)
 EMPLOYEES_TABLE_ID = os.getenv('EMPLOYEES_TABLE_ID', 'm3jxshm3jce0b2v')

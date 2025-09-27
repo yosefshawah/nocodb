@@ -143,7 +143,27 @@ pytest tests/test_server_health.py::TestServerHealth::test_server_up -v -s
 
 ## Environment Variables
 
-You can override any configuration:
+### Loading Environment Variables
+
+The tests automatically load environment variables from a `.env` file using `python-dotenv`. This happens in both `config.py` and `conftest.py`.
+
+**Required `.env` file structure:**
+
+```bash
+# Create .env file from template
+cp env.local.example .env
+
+# Edit .env with your settings
+NOCODB_URL=http://localhost:8080/
+ENVIRONMENT=local
+NC_ADMIN_EMAIL=admin@example.com
+NC_ADMIN_PASSWORD=12341234
+EMPLOYEES_TABLE_ID=m3jxshm3jce0b2v
+```
+
+### Runtime Overrides
+
+You can also override any configuration at runtime:
 
 ```bash
 # Run against different URL
@@ -152,9 +172,11 @@ NOCODB_URL=http://localhost:3000/ pytest tests/ -v
 # Use different environment
 ENVIRONMENT=development pytest tests/ -v
 
-# Skip database reset (for debugging)
-SKIP_DB_RESET=true pytest tests/ -v
+# Override table ID
+EMPLOYEES_TABLE_ID=different_table_id pytest tests/ -v
 ```
+
+**Note**: Runtime environment variables take precedence over `.env` file values.
 
 ## Performance Tips
 
