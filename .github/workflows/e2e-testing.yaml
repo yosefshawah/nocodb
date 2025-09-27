@@ -80,7 +80,20 @@ jobs:
           ls -la nocodb || true
 
       - name: Build custom image (nocodb-custom)
-        run: bash ./build-local-docker-image.sh
+        run: |
+          echo "Starting Docker image build..."
+          bash ./build-local-docker-image.sh
+
+          # Verify the image was created
+          echo "Checking if nocodb-custom image was created:"
+          docker images | grep nocodb-custom || {
+            echo "ERROR: nocodb-custom image was not created!"
+            echo "Build log contents:"
+            cat build-local-docker-image.log || echo "No log file found"
+            exit 1
+          }
+
+          echo "✅ nocodb-custom image created successfully"
 
       - name: Docker login
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
@@ -96,11 +109,23 @@ jobs:
           echo "Available images:"
           docker images | grep nocodb || echo "No nocodb images found"
 
+          # Verify nocodb-custom exists before tagging
+          if ! docker images | grep -q nocodb-custom; then
+            echo "ERROR: nocodb-custom image not found!"
+            echo "Available images:"
+            docker images
+            exit 1
+          fi
+
           # Tag the locally built image with our computed tag
           # The build script creates 'nocodb-custom' (without :latest tag)
+          echo "Tagging image: nocodb-custom -> $IMAGE:${{ env.IMAGE_TAG }}"
           docker tag nocodb-custom $IMAGE:${{ env.IMAGE_TAG }}
+
+          echo "Pushing image: $IMAGE:${{ env.IMAGE_TAG }}"
           docker push $IMAGE:${{ env.IMAGE_TAG }}
-          echo "Image pushed: $IMAGE:${{ env.IMAGE_TAG }}"
+
+          echo "✅ Image pushed successfully: $IMAGE:${{ env.IMAGE_TAG }}"
 
   deploy-to-ec2:
     runs-on: ubuntu-22.04
