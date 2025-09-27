@@ -1,0 +1,12 @@
+[debug] Running remote database reset for tests/test_create_table.py::TestCreateNewTable::test_create_new_table
+[debug] SSH_HOST: ec2-52-18-93-49.eu-west-1.compute.amazonaws.com
+[debug] SSH_USER: ubuntu
+[debug] SSH_KEY_FILE: /home/runner/work/nocodb/nocodb/ec2_key.pem
+[debug] RESET_SCRIPT: /home/ubuntu/app/scripts/reset_db.sh
+[debug] SSH key permissions: -rw-------
+[timing] tests/test_create_table.py::TestCreateNewTable::test_create_new_table remote reset+health: 8.26s
+[debug] CI environment detected: True
+[debug] HEADLESS env var: 'true'
+[debug] Should run headless: True
+🤖 Running in headless mode
+[timing] tests/test_create_table.py::TestCreateNewTable::test_create_new_table test duration: 14.11s

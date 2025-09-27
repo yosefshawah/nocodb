@@ -1,0 +1,56 @@
+Warning: Permanently added 'ec2-52-18-93-49.eu-west-1.compute.amazonaws.com' (ED25519) to the list of known hosts.
+time="2025-09-27T19:29:32Z" level=warning msg="/home/ubuntu/app/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+ Container noco  Restarting
+ Container noco  Started
+[LoginPage] 🔄 Navigating to login page: http://52.18.93.49:8080/dashboard/
+[LoginPage] 🔄 Verifying we are on Login Page
+[LoginPage] ✅ Successfully verified we are on Login Page
+[LoginPage] 🔄 Checking for presence of Email input field
+[LoginPage] ✅ Email input field is present on the page
+[LoginPage] 🔄 Checking for presence of Password input field
+[LoginPage] ✅ Password input field is present on the page
+[LoginPage] ✅ Successfully navigated to login page
+[LoginPage] 🔄 Entering email: admin@example.com
+[LoginPage] ✅ Email entered successfully
+[LoginPage] 🔄 Entering password
+[LoginPage] ✅ Password entered successfully
+[LoginPage] 🔄 Clicking login button
+[LoginPage] 🔄 Checking for presence of Login button
+[LoginPage] ✅ Login button is present on the page
+[LoginPage] ✅ Login button clicked
+[LoginPage] 🔄 Waiting for login to complete
+[LoginPage] ✅ Login completed successfully - redirected to dashboard
+[LoginPage] 📄 Dashboard loaded - URL: http://52.18.93.49:8080/dashboard/#/
+[SidebarPage] 🔄 Navigating to company-x base
+[SidebarPage] 🔄 Checking for presence of Company-X base button
+[SidebarPage] ✅ Company-X base button is present on the page
+[SidebarPage] ✅ Successfully navigated to company-x base
+[SidebarPage] 🔄 Clicking Create New button
+[SidebarPage] 🔄 Checking for presence of Create New button
+[SidebarPage] ✅ Create New button is present on the page
+[SidebarPage] ✅ Create New button clicked
+[SidebarPage] 🔄 Waiting for dropdown menu to appear
+[SidebarPage] 🔄 Checking for presence of Create New dropdown menu
+[SidebarPage] ✅ Create New dropdown menu is present on the page
+[SidebarPage] ✅ Dropdown menu appeared successfully
+[SidebarPage] 🔄 Clicking Table option from dropdown
+[SidebarPage] 🔄 Checking for presence of Table option in dropdown
+[SidebarPage] ✅ Table option in dropdown is present on the page
+[SidebarPage] ✅ Table option clicked - transitioning to table creation form
+[TablePage] 🔄 Waiting for table creation modal to load
+[TablePage] 🔄 Checking for presence of Table creation modal
+[TablePage] ✅ Table creation modal is present on the page
+[TablePage] 🔄 Checking for presence of Table name input field
+[TablePage] ✅ Table name input field is present on the page
+[TablePage] ✅ Table creation modal loaded successfully
+[TablePage] 📄 Table Creation Modal loaded - URL: http://52.18.93.49:8080/dashboard/#/nc/pce1khaxfq6n1pz
+[TablePage] 🔄 Entering table name: test-table
+[TablePage] 🔄 Checking for presence of Table name input field
+[TablePage] ✅ Table name input field is present on the page
+[TablePage] ✅ Table name 'test-table' entered successfully
+[TablePage] 🔄 Clicking Create Table button
+[TablePage] 🔄 Checking for presence of Create Table button
+[TablePage] ✅ Create Table button is present on the page
+[TablePage] ✅ Create Table button clicked
+[TablePage] 🔄 Waiting for table creation to complete
+[TablePage] ✅ Table creation completed - modal disappeared
