@@ -42,23 +42,14 @@ class TestGetEmployees:
         record_id = data.get("Id") or data.get("id") or data.get("ID")
         assert record_id == employee_id, f"Expected employee ID {employee_id}, got {record_id}"
         
-        # Verify essential employee fields are present
-        assert "first_name" in data, "Missing first_name field"
-        assert "last_name" in data, "Missing last_name field" 
-        assert "email" in data, "Missing email field"
-        assert "hire_date" in data, "Missing hire_date field"
-        assert "salary" in data, "Missing salary field"
-        assert "experience" in data, "Missing experience field"
         
-        # Verify field types and values are reasonable
-        assert isinstance(data["first_name"], str), "first_name should be string"
-        assert isinstance(data["last_name"], str), "last_name should be string"
-        assert isinstance(data["email"], str), "email should be string"
-        assert isinstance(data["hire_date"], str), "hire_date should be string"
-        assert isinstance(data["salary"], (int, float)), "salary should be numeric"
-        assert isinstance(data["experience"], str), "experience should be string"
+        # Verify specific employee data for ID 7 (Helena Martinez) - essential fields only
+        assert data["Id"] == 7, f"Expected Id 7, got {data['Id']}"
+        assert data["first_name"] == "Helena", f"Expected first_name 'Helena', got '{data['first_name']}'"
+        assert data["last_name"] == "Martinez", f"Expected last_name 'Martinez', got '{data['last_name']}'"
+        assert data["email"] == "helena.martinez@company.com", f"Expected email 'helena.martinez@company.com', got '{data['email']}'"
+        assert data["hire_date"] == "2024-01-15", f"Expected hire_date '2024-01-15', got '{data['hire_date']}'"
+        assert data["salary"] == 100000, f"Expected salary 100000, got {data['salary']}"
+        assert data["experience"] == "over 4 years in cloud, contributing to cloud migration and system design.", f"Expected specific experience text, got '{data['experience']}'"
         
-        # Verify non-empty values
-        assert len(data["first_name"]) > 0, "first_name should not be empty"
-        assert len(data["last_name"]) > 0, "last_name should not be empty"
-        assert "@" in data["email"], "email should contain @ symbol"
+  
