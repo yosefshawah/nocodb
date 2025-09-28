@@ -5,14 +5,19 @@ Contains common settings, API tokens, table IDs, and helper functions
 
 import os
 import requests
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Base configuration - use environment variables with fallbacks
-BASE_URL = os.getenv('NOCODB_URL', 'http://52.18.93.49:8080/')
+# For local testing, set NOCODB_URL=http://localhost:8080/ in your environment
+BASE_URL = os.getenv('NOCODB_URL', 'http://localhost:8080/')  # Default to localhost for local testing
 API_TOKEN = os.getenv('API_TOKEN', 'xpkrixNKoiHqfwzsIDoNh7MLRjP4FLR48gV3QFgQ')  # no fallback; token varies per instance
 NC_ADMIN_EMAIL = os.getenv('NC_ADMIN_EMAIL', 'admin@example.com')
 NC_ADMIN_PASSWORD = os.getenv('NC_ADMIN_PASSWORD', '12341234')
 # Environment detection
-ENVIRONMENT = os.getenv('ENVIRONMENT', 'production')
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'local')
 
 # Descriptive table ID for employees (if needed elsewhere)
 EMPLOYEES_TABLE_ID = os.getenv('EMPLOYEES_TABLE_ID', 'm3jxshm3jce0b2v')
@@ -58,61 +63,6 @@ def get_auth_headers():
         'Content-Type': 'application/json',
         'xc-auth': token,
     }
-
-# Sample request bodies for different test scenarios
-class SampleData:
-    """Sample data for testing different scenarios"""
-    
-    @staticmethod
-    def valid_employee():
-        """Get a valid employee record for testing"""
-        return {
-            "first_name": "John",
-            "last_name": "Doe",
-            "email": "john.doe@example.com",
-            "hire_date": "2024-01-15",
-            "salary": 75000
-        }
-    
-    @staticmethod
-    def employee_with_string_salary():
-        """Get an employee record with salary as string"""
-        return {
-            "first_name": "Jane",
-            "last_name": "Smith",
-            "email": "jane.smith@example.com",
-            "hire_date": "2024-02-20",
-            "salary": "65000"  # Salary as string
-        }
-    
-    @staticmethod
-    def invalid_employee():
-        """Get an employee record with invalid data for testing validation"""
-        return {
-            "first_name": "",  # Empty first name
-            "last_name": "Test",
-            "email": "invalid-email",  # Invalid email
-            "hire_date": "invalid-date",  # Invalid date
-            "salary": "not-a-number"  # Invalid salary
-        }
-    
-    @staticmethod
-    def partial_employee():
-        """Get a partial employee record for testing required fields"""
-        return {
-            "first_name": "Test"
-            # Missing other required fields
-        }
-    
-    @staticmethod
-    def salary_test_cases():
-        """Get different salary format test cases"""
-        return [
-            {"salary": 75000, "description": "integer salary"},
-            {"salary": "65000", "description": "string salary"},
-            {"salary": 75000.50, "description": "float salary"},
-            {"salary": "75000.50", "description": "string float salary"}
-        ]
 
 # API endpoint builders
 class Endpoints:

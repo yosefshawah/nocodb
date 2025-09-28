@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  noco:
+    image: nocodb-local:latest
+    container_name: noco
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nocodb:/usr/app/data
+    restart: unless-stopped
+    environment:
+      NC_ADMIN_EMAIL: admin@example.com
+      NC_ADMIN_PASSWORD: 12341234

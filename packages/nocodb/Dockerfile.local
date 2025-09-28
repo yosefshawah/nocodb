@@ -28,7 +28,8 @@ RUN echo "node-linker=hoisted" > .npmrc
 
 # Install production dependencies, reduce node_modules size with modclean,
 # remove sqlite deps, and add execute permission to start.sh
-RUN pnpm uninstall nocodb-sdk
+# Remove nocodb-sdk from package.json to avoid uninstall script running lifecycle hooks
+RUN node -e "const fs=require('fs');const p='./package.json';const pkg=require(p);if(pkg.dependencies&&pkg.dependencies['nocodb-sdk']){delete pkg.dependencies['nocodb-sdk'];fs.writeFileSync(p,JSON.stringify(pkg,null,2));}"
 RUN pnpm install --prod --shamefully-hoist --reporter=silent \
     && pnpm dlx modclean --patterns="default:*" --ignore="nc-lib-gui/**,dayjs/**,express-status-monitor/**,@azure/msal-node/dist/**,@react-email/**,jsdom/**" --run \
     && rm -rf ./node_modules/sqlite3/deps \
