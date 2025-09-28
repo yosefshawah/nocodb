@@ -262,7 +262,7 @@ jobs:
           sleep 2  # Give Xvfb time to start
 
           # Run tests with proper cleanup and Allure reporting
-          pytest tests/ -v --tb=short --alluredir=allure-results
+          pytest ui-tests/ -v --tb=short --alluredir=allure-results
 
           # Cleanup Chrome processes and user data
           pkill -f chrome || true
