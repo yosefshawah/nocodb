@@ -293,10 +293,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Run npm audit
+      - name: Run pnpm audit
         run: |
           mkdir -p allure-results
-          npm audit --json > audit.json || true
+          pnpm audit --json > audit.json || true
           # Convert audit.json into Allure format
           node ./scripts/convert-audit-to-allure.js audit.json allure-results/
 
