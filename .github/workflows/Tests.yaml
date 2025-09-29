@@ -1,4 +1,4 @@
-name: E2E Tests
+name: Tests
 
 on:
   pull_request:
@@ -262,7 +262,7 @@ jobs:
           sleep 2  # Give Xvfb time to start
 
           # Run tests with proper cleanup and Allure reporting
-          pytest tests/ -v --tb=short --alluredir=allure-results
+          pytest ui-tests/ -v --tb=short --alluredir=allure-results
 
           # Cleanup Chrome processes and user data
           pkill -f chrome || true
@@ -276,9 +276,40 @@ jobs:
           name: allure-results-ui
           path: allure-results/**
 
+  dependency-scan:
+    runs-on: ubuntu-22.04
+    needs: build-and-push
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run pnpm audit
+        run: |
+          mkdir -p allure-results
+          pnpm audit --json > audit.json || true
+          # Convert audit.json into Allure format
+          node ./scripts/convert-audit-to-allure.js audit.json allure-results/
+
+      - name: Upload raw Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-security
+          path: allure-results/**
+
   publish-allure:
     runs-on: ubuntu-22.04
-    needs: [api-tests, ui-tests, build-and-push]
+    needs: [api-tests, ui-tests, dependency-scan, build-and-push]
     if: always()
     permissions:
       pages: write
@@ -305,6 +336,13 @@ jobs:
           path: allure-download/ui
         continue-on-error: true
 
+      - name: Download Security Allure results
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results-security
+          path: allure-download/security
+        continue-on-error: true
+
       - name: Merge results and add environment.properties
         run: |
           mkdir -p allure-results
@@ -314,15 +352,16 @@ jobs:
           if [ -d "allure-download/ui" ]; then
             cp -r allure-download/ui/* allure-results/ 2>/dev/null || true
           fi
+          if [ -d "allure-download/security" ]; then
+            cp -r allure-download/security/* allure-results/ 2>/dev/null || true
+          fi
           cat > allure-results/environment.properties <<EOF
           Environment=${{ env.TEST_ENVIRONMENT }}
           Image.Tag=${{ env.IMAGE_TAG }}
           NocoDB.URL=${{ env.NOCODB_URL }}
-          GitHub.Run.ID=${{ github.run_id }}
           GitHub.Actor=${{ github.actor }}
           Workflow.Trigger=${{ github.event_name }}
           Branch=${{ github.head_ref || github.ref_name }}
-          Commit.SHA=${{ github.sha }}
           Repository=${{ github.repository }}
           Timestamp=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
           EOF
