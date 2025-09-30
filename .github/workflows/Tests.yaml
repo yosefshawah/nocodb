@@ -9,6 +9,8 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  pull-requests: write
+  issues: write
 
 concurrency:
   group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('manual-{0}-{1}', github.ref_name, github.run_id) }}
