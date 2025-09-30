@@ -5,10 +5,10 @@ import requests  # pyright: ignore[reportMissingModuleSource]
 import pytest  # pyright: ignore[reportMissingImports]
 from dotenv import load_dotenv
 from config import BASE_URL
-
+# test
 # Load environment variables from .env file
 load_dotenv()
-
+# test
 # Environment detection
 IS_LOCAL = BASE_URL.startswith('http://localhost:') or BASE_URL.startswith('http://127.0.0.1:')
 

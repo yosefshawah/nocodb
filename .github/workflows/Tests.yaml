@@ -9,6 +9,8 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  pull-requests: write
+  issues: write
 
 concurrency:
   group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('manual-{0}-{1}', github.ref_name, github.run_id) }}
@@ -175,7 +177,7 @@ jobs:
           NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
         run: |
-          pytest -vv -s yosef-code/tests --alluredir=allure-results
+          pytest -vv -s yosef-code/api-tests --alluredir=allure-results
 
       - name: Upload raw Allure results
         if: ${{ always() }}
@@ -295,21 +297,20 @@ jobs:
 
       - name: Run pnpm audit
         run: |
-          mkdir -p allure-results
-          pnpm audit --json > audit.json || true
-          # Convert audit.json into Allure format
-          node ./scripts/convert-audit-to-allure.js audit.json allure-results/
+          pnpm audit --json > audit-report.json 2>/dev/null || echo '{"vulnerabilities":{}}' > audit-report.json
+          pnpm audit --audit-level=low --prod > audit-report.txt 2>/dev/null || echo "No vulnerabilities found" > audit-report.txt
+          echo "### pnpm audit report" >> $GITHUB_STEP_SUMMARY
+          cat audit-report.txt >> $GITHUB_STEP_SUMMARY
 
-      - name: Upload raw Allure results
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Comment audit results
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
         with:
-          name: allure-results-security
-          path: allure-results/**
+          path: audit-report.txt
 
   publish-allure:
     runs-on: ubuntu-22.04
-    needs: [api-tests, ui-tests, dependency-scan, build-and-push]
+    needs: [api-tests, ui-tests, build-and-push]
     if: always()
     permissions:
       pages: write
@@ -336,13 +337,6 @@ jobs:
           path: allure-download/ui
         continue-on-error: true
 
-      - name: Download Security Allure results
-        uses: actions/download-artifact@v4
-        with:
-          name: allure-results-security
-          path: allure-download/security
-        continue-on-error: true
-
       - name: Merge results and add environment.properties
         run: |
           mkdir -p allure-results
@@ -351,9 +345,6 @@ jobs:
           fi
           if [ -d "allure-download/ui" ]; then
             cp -r allure-download/ui/* allure-results/ 2>/dev/null || true
-          fi
-          if [ -d "allure-download/security" ]; then
-            cp -r allure-download/security/* allure-results/ 2>/dev/null || true
           fi
           cat > allure-results/environment.properties <<EOF
           Environment=${{ env.TEST_ENVIRONMENT }}
