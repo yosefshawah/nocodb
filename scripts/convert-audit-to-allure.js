@@ -39,9 +39,14 @@ const result = {
   description: summary,
   attachments: [
     {
-      name: "pnpm audit report",
+      name: "pnpm audit report (JSON)",
       type: "application/json",
       source: "audit.json",
+    },
+    {
+      name: "pnpm audit report (HTML)",
+      type: "text/html",
+      source: "audit-report.html",
     },
   ],
   parameters: [],

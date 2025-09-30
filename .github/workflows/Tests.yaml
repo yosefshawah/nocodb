@@ -293,12 +293,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Run pnpm audit
+      - name: Run pnpm audit and generate HTML report
         run: |
           mkdir -p allure-results
-          pnpm audit --json > audit.json || true
-          # Convert audit.json into Allure format
-          node ./scripts/convert-audit-to-allure.js audit.json allure-results/
+          # Run the audit script
+          ./generate-audit-report.sh
+          # Copy HTML report to allure results for attachment
+          if [ -f audit-report.html ]; then
+            cp audit-report.html allure-results/
+          fi
 
       - name: Upload raw Allure results
         if: always()
