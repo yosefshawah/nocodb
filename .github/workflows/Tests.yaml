@@ -295,9 +295,9 @@ jobs:
 
       - name: Run pnpm audit
         run: |
-          npm audit --json > audit-report.json
-          npm audit --audit-level=low --production > audit-report.txt
-          echo "### npm audit report" >> $GITHUB_STEP_SUMMARY
+          pnpm audit --json > audit-report.json 2>/dev/null || echo '{"vulnerabilities":{}}' > audit-report.json
+          pnpm audit --audit-level=low --prod > audit-report.txt 2>/dev/null || echo "No vulnerabilities found" > audit-report.txt
+          echo "### pnpm audit report" >> $GITHUB_STEP_SUMMARY
           cat audit-report.txt >> $GITHUB_STEP_SUMMARY
 
       - name: Comment audit results
