@@ -143,7 +143,18 @@ export class UtilsController {
 
   @Get('/api/v1/health')
   async appHealth() {
-    return await this.utilsService.appHealth();
+    const baseHealth = await this.utilsService.appHealth();
+    return {
+      ...baseHealth,
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      memory: {
+        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+        unit: 'MB',
+      },
+      nodeVersion: process.version,
+    };
   }
 
   @UseGuards(PublicApiLimiterGuard)
