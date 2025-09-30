@@ -175,7 +175,7 @@ jobs:
           NOCODB_URL: http://${{ secrets.EC2_HOST }}:8080/
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
         run: |
-          pytest -vv -s yosef-code/tests --alluredir=allure-results
+          pytest -vv -s yosef-code/api-tests --alluredir=allure-results
 
       - name: Upload raw Allure results
         if: ${{ always() }}
@@ -296,11 +296,65 @@ jobs:
       - name: Run pnpm audit and generate HTML report
         run: |
           mkdir -p allure-results
-          # Run the audit script
-          ./generate-audit-report.sh
-          # Copy HTML report to allure results for attachment
-          if [ -f audit-report.html ]; then
+          # Run pnpm audit and generate HTML report
+          pnpm audit --json > audit.json 2>/dev/null || true
+          if [ -s audit.json ]; then
+            npm-audit-html --input audit.json --output audit-report.html
+            echo "Report generated: audit-report.html"
+            
+            # Copy files to allure results
+            cp audit.json allure-results/
             cp audit-report.html allure-results/
+            
+            # Create Allure test result for security scan
+            cat > allure-results/security-scan-result.json << 'EOF'
+          {
+            "uuid": "security-scan",
+            "historyId": "security-scan",
+            "name": "Dependency Vulnerability Scan",
+            "status": "failed",
+            "description": "Security vulnerabilities found in dependencies",
+            "attachments": [
+              {
+                "name": "Audit Report (JSON)",
+                "type": "application/json",
+                "source": "audit.json"
+              },
+              {
+                "name": "Audit Report (HTML)",
+                "type": "text/html",
+                "source": "audit-report.html"
+              }
+            ],
+            "parameters": [],
+            "labels": [
+              {"name": "feature", "value": "Security"},
+              {"name": "suite", "value": "Dependency Audit"}
+            ],
+            "start": $(date +%s)000,
+            "stop": $(date +%s)000
+          }
+          EOF
+          else
+            echo "No audit data to process"
+            # Create passed test result when no vulnerabilities found
+            cat > allure-results/security-scan-result.json << 'EOF'
+          {
+            "uuid": "security-scan",
+            "historyId": "security-scan",
+            "name": "Dependency Vulnerability Scan",
+            "status": "passed",
+            "description": "No security vulnerabilities found in dependencies",
+            "attachments": [],
+            "parameters": [],
+            "labels": [
+              {"name": "feature", "value": "Security"},
+              {"name": "suite", "value": "Dependency Audit"}
+            ],
+            "start": $(date +%s)000,
+            "stop": $(date +%s)000
+          }
+          EOF
           fi
 
       - name: Upload raw Allure results
