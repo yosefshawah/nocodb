@@ -1,0 +1,63 @@
+/* Dark Mode Styles for NocoDB */
+
+/* Base dark mode styles */
+.dark {
+  --nc-bg-primary: #1a1a1a;
+  --nc-bg-secondary: #2d2d2d;
+  --nc-text-primary: #ffffff;
+  --nc-text-secondary: #a0a0a0;
+  --nc-border: #404040;
+}
+
+/* Dark mode overrides for common elements */
+.dark .nc-content-max-w {
+  background-color: var(--nc-bg-primary);
+  color: var(--nc-text-primary);
+}
+
+.dark .border-nc-gray-medium {
+  border-color: var(--nc-border);
+}
+
+.dark .hover\:bg-gray-100:hover {
+  background-color: var(--nc-bg-secondary);
+}
+
+/* Dark mode for buttons and interactive elements */
+.dark button {
+  color: var(--nc-text-primary);
+}
+
+.dark .text-gray-600 {
+  color: var(--nc-text-secondary);
+}
+
+/* Dark mode for cards and panels */
+.dark .bg-white {
+  background-color: var(--nc-bg-secondary);
+}
+
+/* Dark mode for inputs */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: var(--nc-bg-secondary);
+  color: var(--nc-text-primary);
+  border-color: var(--nc-border);
+}
+
+/* Dark mode for tables */
+.dark table {
+  background-color: var(--nc-bg-secondary);
+  color: var(--nc-text-primary);
+}
+
+.dark th,
+.dark td {
+  border-color: var(--nc-border);
+}
+
+/* Smooth transitions for theme switching */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
