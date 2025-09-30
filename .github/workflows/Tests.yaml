@@ -291,77 +291,24 @@ jobs:
           version: 9
 
       - name: Install dependencies
+        run: pnpm install
+
+      - name: Run pnpm audit
         run: |
-          pnpm install
-          npm install -g npm-audit-html
+          npm audit --json > audit-report.json
+          npm audit --audit-level=low --production > audit-report.txt
+          echo "### npm audit report" >> $GITHUB_STEP_SUMMARY
+          cat audit-report.txt >> $GITHUB_STEP_SUMMARY
 
-      - name: Run pnpm audit and generate HTML report
-        run: |
-          mkdir -p allure-results
-          # Run the audit script
-          ./generate-audit-report.sh
-
-          # Check if HTML report was generated and create Allure test result
-          if [ -f audit-report.html ]; then
-            # Copy HTML report to allure results
-            cp audit-report.html allure-results/
-            
-            # Create Allure test result for security scan
-            cat > allure-results/security-scan-result.json << 'EOF'
-          {
-            "uuid": "security-scan",
-            "historyId": "security-scan",
-            "name": "Dependency Vulnerability Scan",
-            "status": "failed",
-            "description": "Security vulnerabilities found in dependencies",
-            "attachments": [
-              {
-                "name": "Audit Report (HTML)",
-                "type": "text/html",
-                "source": "audit-report.html"
-              }
-            ],
-            "parameters": [],
-            "labels": [
-              {"name": "feature", "value": "Security"},
-              {"name": "suite", "value": "Dependency Audit"}
-            ],
-            "start": $(date +%s)000,
-            "stop": $(date +%s)000
-          }
-          EOF
-          else
-            echo "No audit data to process"
-            # Create passed test result when no vulnerabilities found
-            cat > allure-results/security-scan-result.json << 'EOF'
-          {
-            "uuid": "security-scan",
-            "historyId": "security-scan",
-            "name": "Dependency Vulnerability Scan",
-            "status": "passed",
-            "description": "No security vulnerabilities found in dependencies",
-            "attachments": [],
-            "parameters": [],
-            "labels": [
-              {"name": "feature", "value": "Security"},
-              {"name": "suite", "value": "Dependency Audit"}
-            ],
-            "start": $(date +%s)000,
-            "stop": $(date +%s)000
-          }
-          EOF
-          fi
-
-      - name: Upload raw Allure results
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Comment audit results
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
         with:
-          name: allure-results-security
-          path: allure-results/**
+          path: audit-report.txt
 
   publish-allure:
     runs-on: ubuntu-22.04
-    needs: [api-tests, ui-tests, dependency-scan, build-and-push]
+    needs: [api-tests, ui-tests, build-and-push]
     if: always()
     permissions:
       pages: write
@@ -388,13 +335,6 @@ jobs:
           path: allure-download/ui
         continue-on-error: true
 
-      - name: Download Security Allure results
-        uses: actions/download-artifact@v4
-        with:
-          name: allure-results-security
-          path: allure-download/security
-        continue-on-error: true
-
       - name: Merge results and add environment.properties
         run: |
           mkdir -p allure-results
@@ -403,9 +343,6 @@ jobs:
           fi
           if [ -d "allure-download/ui" ]; then
             cp -r allure-download/ui/* allure-results/ 2>/dev/null || true
-          fi
-          if [ -d "allure-download/security" ]; then
-            cp -r allure-download/security/* allure-results/ 2>/dev/null || true
           fi
           cat > allure-results/environment.properties <<EOF
           Environment=${{ env.TEST_ENVIRONMENT }}
