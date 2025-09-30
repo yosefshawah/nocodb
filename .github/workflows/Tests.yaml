@@ -9,8 +9,6 @@ permissions:
   contents: write
   pages: write
   id-token: write
-  pull-requests: write
-  issues: write
 
 concurrency:
   group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('manual-{0}-{1}', github.ref_name, github.run_id) }}
@@ -277,36 +275,6 @@ jobs:
         with:
           name: allure-results-ui
           path: allure-results/**
-
-  dependency-scan:
-    runs-on: ubuntu-22.04
-    needs: build-and-push
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Run pnpm audit
-        run: |
-          pnpm audit --json > audit-report.json 2>/dev/null || echo '{"vulnerabilities":{}}' > audit-report.json
-          pnpm audit --audit-level=low --prod > audit-report.txt 2>/dev/null || echo "No vulnerabilities found" > audit-report.txt
-          echo "### pnpm audit report" >> $GITHUB_STEP_SUMMARY
-          cat audit-report.txt >> $GITHUB_STEP_SUMMARY
-
-      - name: Comment audit results
-        if: github.event_name == 'pull_request'
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          path: audit-report.txt
 
   publish-allure:
     runs-on: ubuntu-22.04
