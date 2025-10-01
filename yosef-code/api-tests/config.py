@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
-
+# testing the ci
 # Base configuration - use environment variables with fallbacks
 # For local testing, set NOCODB_URL=http://localhost:8080/ in your environment
 BASE_URL = os.getenv('NOCODB_URL', 'http://localhost:8080/')  # Default to localhost for local testing
