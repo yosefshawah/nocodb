@@ -36,26 +36,46 @@ jobs:
       - name: Run backend npm audit
         run: |
           cd packages/nocodb
-          echo "### 🔐 Backend Security Audit Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# 🔐 Backend Security Audit Report" > audit-report.md
+          echo "" >> audit-report.md
+          echo "## Package: nocodb (Backend)" >> audit-report.md
+          echo "" >> audit-report.md
+          echo "\`\`\`" >> audit-report.md
           pnpm audit --json > backend-audit.json || true
-          pnpm audit >> $GITHUB_STEP_SUMMARY || echo "No vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+          pnpm audit >> audit-report.md || echo "No vulnerabilities found" >> audit-report.md
+          echo "\`\`\`" >> audit-report.md
 
       - name: Run frontend npm audit
         run: |
           cd packages/nc-gui
           pnpm install
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🎨 Frontend Security Audit Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "" >> ../audit-report.md
+          echo "## 🎨 Frontend Security Audit Report" >> ../audit-report.md
+          echo "" >> ../audit-report.md
+          echo "## Package: nc-gui (Frontend)" >> ../audit-report.md
+          echo "" >> ../audit-report.md
+          echo "\`\`\`" >> ../audit-report.md
           pnpm audit --json > frontend-audit.json || true
-          pnpm audit >> $GITHUB_STEP_SUMMARY || echo "No vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+          pnpm audit >> ../audit-report.md || echo "No vulnerabilities found" >> ../audit-report.md
+          echo "\`\`\`" >> ../audit-report.md
+
+      - name: Display audit summary
+        run: |
+          echo "### 🔐 Security Audit Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📋 **Full audit report available in artifacts**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Summary:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend audit: \`packages/nocodb/\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend audit: \`packages/nc-gui/\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Markdown report: \`audit-report.md\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload audit reports
         uses: actions/upload-artifact@v4
         with:
           name: security-audit-reports
           path: |
+            audit-report.md
             packages/nocodb/backend-audit.json
             packages/nc-gui/frontend-audit.json
 
