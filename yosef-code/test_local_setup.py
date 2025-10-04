@@ -10,7 +10,7 @@ import subprocess
 import requests
 import time
 from dotenv import load_dotenv
-
+# tset ci
 def main():
     print("🧪 Testing Local NocoDB Setup")
     print("=" * 50)
