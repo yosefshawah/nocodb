@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 def main():
     print("🧪 Testing Local NocoDB Setup")
     print("=" * 50)
-    
+    # nova pres
     # Load environment
     load_dotenv()
     
